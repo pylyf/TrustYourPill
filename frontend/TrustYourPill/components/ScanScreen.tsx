@@ -279,6 +279,7 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
                             : result?.match?.reason || 'Dosage Unspecified'}
                         </Text>
                       </View>
+
                     </>
                   ) : (
                     <>

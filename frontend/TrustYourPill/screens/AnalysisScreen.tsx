@@ -1,24 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
-  LayoutAnimation,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
   Image,
+  ActivityIndicator,
+  LayoutAnimation,
 } from 'react-native';
 import {
   AlertCircle,
-  ChevronRight,
   ExternalLink,
-  FlaskConical,
   Pill,
   Shield,
-  Sparkles,
-  Upload,
 } from 'lucide-react-native';
 import { colors, fonts } from '../theme';
 import type { UserMedication } from '../lib/api';
@@ -291,83 +287,13 @@ function PillSearchLoader({ supplementName }: { supplementName: string }) {
   );
 }
 
-// ─── Upload zone ──────────────────────────────────────────────────────────────
-
-type UploadState = 'idle' | 'loading' | 'done';
-
-function UploadZone({ onDone }: { onDone: () => void }) {
-  const [state, setState] = useState<UploadState>('idle');
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePress = () => {
-    if (state !== 'idle') return;
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setState('loading');
-    Animated.sequence([
-      Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, bounciness: 4 }),
-      Animated.spring(scale, { toValue: 1,    useNativeDriver: true, bounciness: 4 }),
-    ]).start();
-    // Simulate AI analysis delay
-    setTimeout(() => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setState('done');
-      onDone();
-    }, 2200);
-  };
-
-  return (
-    <Pressable onPress={handlePress} disabled={state !== 'idle'}>
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <View style={styles.uploadZone}>
-          {state === 'idle' && (
-            <>
-              <View style={styles.uploadIconCircle}>
-                <Upload size={26} strokeWidth={2} color={colors.dark} />
-              </View>
-              <Text style={styles.uploadTitle}>Upload Blood Test Results</Text>
-              <Text style={styles.uploadSub}>
-                PDF or photo — AI will analyze your values
-              </Text>
-              <View style={styles.uploadBtn}>
-                <Text style={styles.uploadBtnText}>Choose file</Text>
-                <ChevronRight size={15} strokeWidth={2.4} color={colors.dark} />
-              </View>
-            </>
-          )}
-          {state === 'loading' && (
-            <>
-              <ActivityIndicator size="large" color={colors.dark} style={{ marginBottom: 12 }} />
-              <Text style={styles.uploadTitle}>Analysing your results…</Text>
-              <Text style={styles.uploadSub}>Our AI is reading your blood panel</Text>
-            </>
-          )}
-          {state === 'done' && (
-            <>
-              <View style={[styles.uploadIconCircle, { backgroundColor: '#F0FDF4' }]}>
-                <Sparkles size={26} strokeWidth={2} color={colors.success} />
-              </View>
-              <Text style={[styles.uploadTitle, { color: colors.success }]}>Analysis complete!</Text>
-              <Text style={styles.uploadSub}>Check the Suggestions tab</Text>
-            </>
-          )}
-        </View>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 // ─── main screen ─────────────────────────────────────────────────────────────
 
 type Props = {
   medications: UserMedication[];
 };
 
-type TabType = 'suggestions' | 'blood_analysis';
-
 export function AnalysisScreen({ medications }: Props) {
-  const [activeTab, setActiveTab] = useState<TabType>('suggestions');
-  const [analysed, setAnalysed] = useState(false);
-
   // Filter med tips to only show for meds the user actually has
   const userMedNames = medications.map((m) => m.displayName.toLowerCase());
   const relevantTips = MED_TIPS.filter((t) =>
@@ -381,26 +307,6 @@ export function AnalysisScreen({ medications }: Props) {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Analysis</Text>
-        
-        {/* Switcher */}
-        <View style={styles.switcher}>
-          <Pressable
-            style={[styles.switchBtn, activeTab === 'suggestions' && styles.switchBtnActive]}
-            onPress={() => setActiveTab('suggestions')}
-          >
-            <Text style={[styles.switchTxt, activeTab === 'suggestions' && styles.switchTxtActive]}>
-              Suggestions
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.switchBtn, activeTab === 'blood_analysis' && styles.switchBtnActive]}
-            onPress={() => setActiveTab('blood_analysis')}
-          >
-            <Text style={[styles.switchTxt, activeTab === 'blood_analysis' && styles.switchTxtActive]}>
-              Blood Analysis
-            </Text>
-          </Pressable>
-        </View>
       </View>
 
       <ScrollView
@@ -408,25 +314,19 @@ export function AnalysisScreen({ medications }: Props) {
         contentContainerStyle={styles.scrollInner}
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === 'blood_analysis' ? (
-          <View style={styles.section}>
-            <UploadZone onDone={() => setAnalysed(true)} />
+        <View style={styles.section}>
+          <SectionLabel icon={Shield} label="Based on your medications" />
+          <Text style={styles.previewHint}>
+            {relevantTips.length > 0
+              ? 'Known side effects from your current medications:'
+              : 'Common side effects from typical medications — add pills via Library to personalise:'}
+          </Text>
+          <View style={styles.cardList}>
+            {shownTips.map((item, index) => (
+              <MedTipCard key={item.id} item={item} index={index} />
+            ))}
           </View>
-        ) : (
-          <View style={styles.section}>
-            <SectionLabel icon={Shield} label="Based on your medications" />
-            <Text style={styles.previewHint}>
-              {relevantTips.length > 0
-                ? 'Known side effects from your current medications:'
-                : 'Common side effects from typical medications — add pills via Library to personalise:'}
-            </Text>
-            <View style={styles.cardList}>
-              {shownTips.map((item, index) => (
-                <MedTipCard key={item.id} item={item} index={index} />
-              ))}
-            </View>
-          </View>
-        )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -510,58 +410,6 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   cardList: { gap: 12 },
-
-  // Upload zone (White, minimalistic)
-  uploadZone: {
-    borderRadius: 24,
-    padding: 28,
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: '#E5E5E5',
-    backgroundColor: '#FFFFFF',
-  },
-  uploadIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  uploadTitle: {
-    fontSize: 17,
-    fontFamily: fonts.semiBold,
-    color: '#111',
-    letterSpacing: -0.5,
-    textAlign: 'center',
-  },
-  uploadSub: {
-    fontSize: 13,
-    fontFamily: fonts.regular,
-    color: 'rgba(0,0,0,0.5)',
-    letterSpacing: -0.2,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  uploadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 9999,
-  },
-  uploadBtnText: {
-    fontSize: 14,
-    fontFamily: fonts.semiBold,
-    color: '#111',
-    letterSpacing: -0.3,
-  },
 
   // Supplement card (White minimalist)
   supplementCard: {

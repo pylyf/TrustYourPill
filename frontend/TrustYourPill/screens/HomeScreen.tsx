@@ -25,6 +25,7 @@ import {
 } from 'lucide-react-native';
 import { colors, fonts, gradients, pillGradientCycle, type GradientKey } from '../theme';
 import type { UserMedication } from '../lib/api';
+import { getPillImage } from '../lib/pillImage';
 
 const avatarUri = 'https://www.figma.com/api/mcp/asset/31e6ebca-e0bc-4a62-af12-46698246312f';
 
@@ -239,7 +240,7 @@ function PillCard({ med, gradientKey, taken = false, onToggle }: PillCardProps) 
         <View style={styles.pillIconWrap}>
           {taken
             ? <Check size={52} strokeWidth={1.2} color="rgba(38,184,30,0.35)" />
-            : <PillIcon size={52} strokeWidth={1.2} color="rgba(0,0,0,0.18)" />}
+            : <Image source={getPillImage(med)} style={styles.pillImage} resizeMode="contain" />}
         </View>
         <View>
           <Text style={styles.pillDose}>{taken ? 'Taken ✓' : dose}</Text>
@@ -583,6 +584,7 @@ const styles = StyleSheet.create({
   },
   cardLabelTaken: { color: 'rgba(0,0,0,0.4)' },
   pillIconWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
+  pillImage: { width: 90, height: 90 },
   emptyPillCard: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   emptyPillText: {
     fontSize: 12, color: 'rgba(0,0,0,0.3)', fontFamily: fonts.medium,
