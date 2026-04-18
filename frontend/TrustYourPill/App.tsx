@@ -16,6 +16,14 @@ import { HomeScreen } from './screens/HomeScreen';
 import { PillLibraryScreen } from './screens/PillLibraryScreen';
 import { SymptomsScreen } from './screens/SymptomsScreen';
 import { CheckupScreen } from './screens/CheckupScreen';
+import {
+  getUserMedications,
+  addUserMedication,
+  deleteUserMedication,
+  searchMedication,
+  type UserMedication,
+  type MedicationCandidate,
+} from './lib/api';
 
 /** Wraps a screen so it fades + slides up each time it becomes visible */
 function AnimatedScreen({ visible, children }: { visible: boolean; children: React.ReactNode }) {
@@ -61,6 +69,8 @@ export default function App() {
   const [tab, setTab] = useState<TabId>('home');
   const [overlay, setOverlay] = useState<null | 'checkup' | 'scan' | 'medOverview'>(null);
   const [scannedName, setScannedName] = useState<string | null>(null);
+  const [scannedCandidate, setScannedCandidate] = useState<MedicationCandidate | null>(null);
+  const [userMedications, setUserMedications] = useState<UserMedication[]>([]);
   const [isEmergencyDrawerVisible, setIsEmergencyDrawerVisible] = useState(false);
   const [isAppointmentsDrawerVisible, setIsAppointmentsDrawerVisible] = useState(false);
 
@@ -79,12 +89,24 @@ export default function App() {
         Animated.spring(overlayTranslateY, { toValue: 0, damping: 22, stiffness: 200, useNativeDriver: true }),
       ]).start();
     } else {
-      // Fade out then unmount
       Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
         setOverlayMounted(false);
       });
     }
   }, [overlay]);
+
+  const loadMedications = useCallback(async () => {
+    try {
+      const meds = await getUserMedications();
+      setUserMedications(meds);
+    } catch {
+      // silently ignore on load failure
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMedications();
+  }, [loadMedications]);
 
   const onAction = useCallback((action: NavAction) => {
     if (action === 'scan') {
@@ -98,12 +120,62 @@ export default function App() {
   const closeOverlay = useCallback(() => setOverlay(null), []);
   const openScan = useCallback(() => setOverlay('scan'), []);
 
-  const handleScanConfirm = useCallback((name: string) => {
+  const handleScanConfirm = useCallback(async (name: string) => {
     setScannedName(name);
+    setScannedCandidate(null);
     setOverlay('medOverview');
+    try {
+      const result = await searchMedication(name);
+      if (result.candidates.length > 0) {
+        setScannedCandidate(result.candidates[0]);
+      }
+    } catch {
+      // candidate stays null — add will be skipped gracefully
+    }
   }, []);
 
+  const handleAddMedication = useCallback(async () => {
+    if (!scannedName) return;
+    try {
+      const candidate = scannedCandidate;
+      if (candidate) {
+        await addUserMedication({
+          inputName: scannedName,
+          displayName: candidate.displayName,
+          normalizedName: candidate.normalizedName,
+          rxcui: candidate.rxcui,
+          rxaui: candidate.rxaui,
+          source: candidate.source,
+          searchScore: candidate.confidenceScore,
+        });
+      } else {
+        await addUserMedication({
+          inputName: scannedName,
+          displayName: scannedName,
+          normalizedName: scannedName.toLowerCase(),
+          rxcui: scannedName.toLowerCase().replace(/\s+/g, '-'),
+          source: 'scan',
+        });
+      }
+      await loadMedications();
+    } catch {
+      // silently fail for hackathon
+    }
+    setOverlay(null);
+  }, [scannedName, scannedCandidate, loadMedications]);
+
+  const handleDeleteMedication = useCallback(async (medId: string) => {
+    try {
+      await deleteUserMedication(medId);
+      await loadMedications();
+    } catch {
+      // silently fail
+    }
+  }, [loadMedications]);
+
   if (!fontsLoaded) return null;
+
+  const currentMedicationNames = userMedications.map((m) => m.normalizedName);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -122,7 +194,11 @@ export default function App() {
         </AnimatedScreen>
 
         <AnimatedScreen visible={tab === 'library'}>
-          <PillLibraryScreen onAdd={openScan} />
+          <PillLibraryScreen
+            medications={userMedications}
+            onAdd={openScan}
+            onDelete={handleDeleteMedication}
+          />
         </AnimatedScreen>
 
         {overlayMounted && (
@@ -147,8 +223,9 @@ export default function App() {
       <MedOverviewScreen
         visible={overlay === 'medOverview'}
         medicationName={scannedName}
+        currentMedications={currentMedicationNames}
         onClose={closeOverlay}
-        onAdd={closeOverlay}
+        onAdd={handleAddMedication}
       />
       <EmergencyDrawer visible={isEmergencyDrawerVisible} onClose={() => setIsEmergencyDrawerVisible(false)} />
       <AppointmentsDrawer visible={isAppointmentsDrawerVisible} onClose={() => setIsAppointmentsDrawerVisible(false)} />
