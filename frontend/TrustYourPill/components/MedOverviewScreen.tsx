@@ -107,13 +107,12 @@ export function MedOverviewScreen({ visible, medicationName, currentMedications,
   };
 
   const finishProgress = () => {
-    progressAnim.stopAnimation(() => {
-      Animated.timing(progressAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: false,
-      }).start();
-    });
+    progressAnim.stopAnimation();
+    Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: false,
+    }).start();
   };
 
   const startDots = () => {
