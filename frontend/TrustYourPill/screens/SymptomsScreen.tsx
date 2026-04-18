@@ -390,6 +390,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
 
       {/* Quick summary card commented out */}
 
+      {!showInsights ? (
       <Animated.View
         style={[
           styles.modeCard,
@@ -460,6 +461,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
           </View>
         )}
       </Animated.View>
+      ) : null}
 
       {showingSymptoms ? (
         <>

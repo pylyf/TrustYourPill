@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   ActivityIndicator,
   Easing
@@ -56,8 +57,10 @@ type ScanResult = {
 
 export function ScanScreen({ visible, onClose, onConfirm }: Props) {
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'error' | 'manual'>('idle');
   const [result, setResult] = useState<ScanResult | null>(null);
+  const [manualName, setManualName] = useState('');
+  const [manualDosage, setManualDosage] = useState('');
 
   // Animations
   const contentOp = useRef(new Animated.Value(0)).current;
@@ -72,6 +75,8 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
       setImageUri(null);
       setStatus('idle');
       setResult(null);
+      setManualName('');
+      setManualDosage('');
       Animated.parallel([
         Animated.timing(contentOp, { toValue: 1, duration: 400, useNativeDriver: true }),
         Animated.spring(contentY, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true })
@@ -116,7 +121,7 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
 
   // Card Appearance Animation
   useEffect(() => {
-    if (status === 'success' || status === 'error') {
+    if (status === 'success' || status === 'error' || status === 'manual') {
       Animated.parallel([
         Animated.timing(cardOp, { toValue: 1, duration: 400, useNativeDriver: true }),
         Animated.spring(cardY, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true })
@@ -215,6 +220,9 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
   const handleRetake = () => {
     setImageUri(null);
     setStatus('idle');
+    setResult(null);
+    setManualName('');
+    setManualDosage('');
   };
 
   const handleConfirm = () => {
@@ -222,6 +230,21 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
     const dosage = result?.extraction?.dosageText ?? null;
     onConfirm(medName, dosage);
   };
+
+  const handleOpenManual = () => {
+    setManualName(result?.extraction?.medicationName?.trim() || '');
+    setManualDosage(result?.extraction?.dosageText?.trim() || '');
+    setStatus('manual');
+  };
+
+  const handleManualConfirm = () => {
+    const name = manualName.trim();
+    if (!name) return;
+    const dosage = manualDosage.trim();
+    onConfirm(name, dosage.length > 0 ? dosage : null);
+  };
+
+  const isManualValid = manualName.trim().length > 0;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -236,7 +259,7 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
         </View>
 
         {/* --- Image Display / Scanning Layout --- */}
-        {(status === 'scanning' || status === 'success' || status === 'error') && imageUri ? (
+        {(status === 'scanning' || status === 'success' || status === 'error' || status === 'manual') && imageUri ? (
           <View style={styles.imageContainer}>
             <Image source={{ uri: imageUri }} style={styles.capturedImage} />
 
@@ -257,7 +280,7 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
             )}
 
             {/* Success Layout */}
-            {(status === 'success' || status === 'error') && (
+            {(status === 'success' || status === 'error' || status === 'manual') && (
               <Animated.View style={[
                 styles.resultCard,
                 { opacity: cardOp, transform: [{ translateY: cardY }] }
@@ -281,6 +304,32 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
                       </View>
 
                     </>
+                  ) : status === 'manual' ? (
+                    <>
+                      <View style={styles.resultHeader}>
+                        <ScanLine size={24} color="#006BFF" />
+                        <Text style={styles.resultTitle}>Add Medication Manually</Text>
+                      </View>
+                      <View style={styles.manualFields}>
+                        <Text style={styles.manualLabel}>Medication name</Text>
+                        <TextInput
+                          value={manualName}
+                          onChangeText={setManualName}
+                          placeholder="e.g. Ibuprofen"
+                          placeholderTextColor="rgba(0,0,0,0.35)"
+                          style={styles.manualInput}
+                          autoCapitalize="words"
+                        />
+                        <Text style={styles.manualLabel}>Dosage (optional)</Text>
+                        <TextInput
+                          value={manualDosage}
+                          onChangeText={setManualDosage}
+                          placeholder="e.g. 200 mg tablet"
+                          placeholderTextColor="rgba(0,0,0,0.35)"
+                          style={styles.manualInput}
+                        />
+                      </View>
+                    </>
                   ) : (
                     <>
                       <View style={styles.resultHeader}>
@@ -290,18 +339,36 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
                       <View style={styles.pillDetails}>
                         <Text style={styles.pillDosage}>{result?.message}</Text>
                       </View>
+                      <Pressable style={styles.manualCta} onPress={handleOpenManual}>
+                        <Text style={styles.manualCtaText}>Add Manually Instead</Text>
+                      </Pressable>
                     </>
                   )}
 
-                  <View style={styles.buttonRow}>
-                    <Pressable style={[styles.actionBtn, styles.retakeBtn]} onPress={handleRetake}>
-                      <RefreshCcw size={18} color="#111111" />
-                      <Text style={styles.retakeLabel}>Retake</Text>
-                    </Pressable>
-                    <Pressable style={[styles.actionBtn, styles.confirmBtn]} onPress={status === 'success' ? handleConfirm : onClose}>
-                      <Text style={styles.confirmLabel}>{status === 'success' ? 'Confirm' : 'Close'}</Text>
-                    </Pressable>
-                  </View>
+                  {status === 'manual' ? (
+                    <View style={styles.buttonRow}>
+                      <Pressable style={[styles.actionBtn, styles.retakeBtn]} onPress={() => setStatus('error')}>
+                        <Text style={styles.retakeLabel}>Back</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.actionBtn, styles.confirmBtn, !isManualValid && styles.confirmBtnDisabled]}
+                        onPress={handleManualConfirm}
+                        disabled={!isManualValid}
+                      >
+                        <Text style={styles.confirmLabel}>Continue</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <View style={styles.buttonRow}>
+                      <Pressable style={[styles.actionBtn, styles.retakeBtn]} onPress={handleRetake}>
+                        <RefreshCcw size={18} color="#111111" />
+                        <Text style={styles.retakeLabel}>Retake</Text>
+                      </Pressable>
+                      <Pressable style={[styles.actionBtn, styles.confirmBtn]} onPress={status === 'success' ? handleConfirm : onClose}>
+                        <Text style={styles.confirmLabel}>{status === 'success' ? 'Confirm' : 'Close'}</Text>
+                      </Pressable>
+                    </View>
+                  )}
                 </View>
               </Animated.View>
             )}
@@ -528,6 +595,42 @@ const styles = StyleSheet.create({
     fontFamily: geistMedium,
     color: 'rgba(0,0,0,0.6)',
   },
+  manualFields: {
+    gap: 8,
+    marginBottom: 24,
+  },
+  manualLabel: {
+    fontSize: 13,
+    color: 'rgba(0,0,0,0.65)',
+    fontFamily: geistMedium,
+    letterSpacing: -0.2,
+  },
+  manualInput: {
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.12)',
+    paddingHorizontal: 14,
+    fontFamily: geistRegular,
+    fontSize: 15,
+    color: '#111111',
+    backgroundColor: '#F8F8F8',
+    marginBottom: 8,
+  },
+  manualCta: {
+    marginBottom: 24,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 107, 255, 0.1)',
+  },
+  manualCtaText: {
+    color: '#006BFF',
+    fontFamily: geistSemiBold,
+    fontSize: 14,
+    letterSpacing: -0.2,
+  },
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
@@ -550,6 +653,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  confirmBtnDisabled: {
+    opacity: 0.45,
   },
   retakeLabel: {
     color: '#111',
