@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -8,12 +9,14 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   BookOpen,
+  Info,
   Pill as PillIcon,
   Plus,
   Trash2,
 } from 'lucide-react-native';
 import { colors, fonts, gradients, type GradientKey } from '../theme';
 import type { UserMedication } from '../lib/api';
+import { MedicationDetailModal } from '../components/MedicationDetailModal';
 
 const SLOT_LABELS: Record<string, string> = {
   morning: 'Morning',
@@ -56,55 +59,76 @@ type Props = {
 };
 
 export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
+  const [detailMed, setDetailMed] = useState<UserMedication | null>(null);
+  const [detailGradient, setDetailGradient] = useState<GradientKey>('lightBlue');
+
+  const openDetail = (med: UserMedication, gradient: GradientKey) => {
+    setDetailGradient(gradient);
+    setDetailMed(med);
+  };
+
   return (
-    <ScrollView
-      style={styles.content}
-      contentContainerStyle={styles.contentInner}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>Your medications</Text>
-          <Text style={styles.title}>Library</Text>
-        </View>
-        <Pressable onPress={onAdd} style={[styles.iconButton, styles.iconButtonAccent]}>
-          <Plus size={20} strokeWidth={2.4} color={colors.white} />
-        </Pressable>
-      </View>
-
-      {/* ── Summary card ── */}
-      <LinearGradient
-        colors={['#FFFFFF', '#F9FAFB']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.adherenceCard, styles.summaryCard]}
+    <>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentInner}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.cardLabel}>Total medications</Text>
-        <Text style={styles.summaryValue}>
-          {medications.length}
-          <Text style={styles.summaryUnit}>
-            {medications.length === 1 ? ' medication saved' : ' medications saved'}
-          </Text>
-        </Text>
-        <Text style={styles.summaryHint}>Scan a label to add more</Text>
-      </LinearGradient>
-
-      {medications.length === 0 ? (
-        <EmptyState onAdd={onAdd} />
-      ) : (
-        <View style={styles.list}>
-          {medications.map((med, index) => (
-            <MedCard
-              key={med.id}
-              med={med}
-              gradient={gradientForIndex(index)}
-              onDelete={() => onDelete(med.id)}
-            />
-          ))}
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.kicker}>Your medications</Text>
+            <Text style={styles.title}>Library</Text>
+          </View>
+          <Pressable onPress={onAdd} style={[styles.iconButton, styles.iconButtonAccent]}>
+            <Plus size={20} strokeWidth={2.4} color={colors.white} />
+          </Pressable>
         </View>
-      )}
-    </ScrollView>
+
+        {/* ── Summary card ── */}
+        <LinearGradient
+          colors={['#FFFFFF', '#F9FAFB']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.adherenceCard, styles.summaryCard]}
+        >
+          <Text style={styles.cardLabel}>Total medications</Text>
+          <Text style={styles.summaryValue}>
+            {medications.length}
+            <Text style={styles.summaryUnit}>
+              {medications.length === 1 ? ' medication saved' : ' medications saved'}
+            </Text>
+          </Text>
+          <Text style={styles.summaryHint}>Scan a label to add more</Text>
+        </LinearGradient>
+
+        {medications.length === 0 ? (
+          <EmptyState onAdd={onAdd} />
+        ) : (
+          <View style={styles.list}>
+            {medications.map((med, index) => {
+              const gradient = gradientForIndex(index);
+              return (
+                <MedCard
+                  key={med.id}
+                  med={med}
+                  gradient={gradient}
+                  onDelete={() => onDelete(med.id)}
+                  onInfo={() => openDetail(med, gradient)}
+                />
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+
+      <MedicationDetailModal
+        visible={detailMed !== null}
+        medication={detailMed}
+        gradientKey={detailGradient}
+        onClose={() => setDetailMed(null)}
+      />
+    </>
   );
 }
 
@@ -112,52 +136,61 @@ function MedCard({
   med,
   gradient,
   onDelete,
+  onInfo,
 }: {
   med: UserMedication;
   gradient: GradientKey;
   onDelete: () => void;
+  onInfo: () => void;
 }) {
   return (
-    <LinearGradient
-      colors={gradients[gradient] as unknown as readonly [string, string]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.medCard}
-    >
-      <View style={styles.medIconWrap}>
-        <PillIcon size={20} strokeWidth={2.2} color={colors.dark} />
-      </View>
+    <Pressable onLongPress={onInfo} delayLongPress={400}>
+      <LinearGradient
+        colors={gradients[gradient] as unknown as readonly [string, string]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.medCard}
+      >
+        <View style={styles.medIconWrap}>
+          <PillIcon size={20} strokeWidth={2.2} color={colors.dark} />
+        </View>
 
-      <View style={styles.medInfo}>
-        <Text style={styles.medName} numberOfLines={1}>
-          {med.displayName}
-        </Text>
-
-        {med.dosageText ? (
-          <Text style={styles.medDosage} numberOfLines={1}>{med.dosageText}</Text>
-        ) : null}
-
-        {med.scheduleTimes.length > 0 ? (
-          <View style={styles.chipRow}>
-            {med.scheduleTimes.map((slotId) => (
-              <View key={slotId} style={styles.chip}>
-                <Text style={styles.chipText}>
-                  {SLOT_LABELS[slotId] ?? slotId} · {SLOT_TIMES[slotId] ?? ''}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.medMeta} numberOfLines={1}>
-            Added {formatDate(med.createdAt)}
+        <View style={styles.medInfo}>
+          <Text style={styles.medName} numberOfLines={1}>
+            {med.displayName}
           </Text>
-        )}
-      </View>
 
-      <Pressable onPress={onDelete} style={styles.deleteBtn} hitSlop={12}>
-        <Trash2 size={16} strokeWidth={2} color="rgba(0,0,0,0.35)" />
-      </Pressable>
-    </LinearGradient>
+          {med.dosageText ? (
+            <Text style={styles.medDosage} numberOfLines={1}>{med.dosageText}</Text>
+          ) : null}
+
+          {med.scheduleTimes.length > 0 ? (
+            <View style={styles.chipRow}>
+              {med.scheduleTimes.map((slotId) => (
+                <View key={slotId} style={styles.chip}>
+                  <Text style={styles.chipText}>
+                    {SLOT_LABELS[slotId] ?? slotId} · {SLOT_TIMES[slotId] ?? ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.medMeta} numberOfLines={1}>
+              Added {formatDate(med.createdAt)}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.actionCluster}>
+          <Pressable onPress={onInfo} style={styles.actionBtn} hitSlop={10}>
+            <Info size={16} strokeWidth={2.2} color="rgba(0,0,0,0.4)" />
+          </Pressable>
+          <Pressable onPress={onDelete} style={styles.actionBtn} hitSlop={12}>
+            <Trash2 size={16} strokeWidth={2} color="rgba(0,0,0,0.35)" />
+          </Pressable>
+        </View>
+      </LinearGradient>
+    </Pressable>
   );
 }
 
@@ -281,7 +314,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  medInfo: { flex: 1 },
+  medInfo: { flex: 1, minWidth: 0 },
   medName: {
     fontSize: 16,
     color: '#000',
@@ -319,7 +352,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     letterSpacing: -0.15,
   },
-  deleteBtn: {
+  actionCluster: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  actionBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
