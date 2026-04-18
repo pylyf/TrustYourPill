@@ -1,9 +1,10 @@
-﻿import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+﻿import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   BookOpen,
-  Check,
   Coffee,
+  Info,
   Moon,
   Pill as PillIcon,
   Plus,
@@ -13,8 +14,9 @@ import {
 } from 'lucide-react-native';
 import { colors, fonts, gradients, type GradientKey } from '../theme';
 import type { UserMedication } from '../lib/api';
+import { MedicationDetailModal } from '../components/MedicationDetailModal';
 
-// ─── slot definitions ────────────────────────────────────────────────────────
+// -- slot definitions ---------------------------------------------------------
 
 const SLOTS = [
   { id: 'morning',   label: 'Morning',   time: '08:00', sub: 'With breakfast', Icon: Coffee },
@@ -27,11 +29,7 @@ const SLOTS = [
 type SlotId = (typeof SLOTS)[number]['id'];
 
 const CARD_GRADIENTS: GradientKey[] = [
-  'lightBlue',
-  'warmPeach',
-  'pinkPurple',
-  'sage',
-  'softPurple',
+  'lightBlue', 'warmPeach', 'pinkPurple', 'sage', 'softPurple',
 ];
 
 function gradientForIndex(index: number): GradientKey {
@@ -54,7 +52,7 @@ function computeNextSlot(medications: UserMedication[]): SlotId | null {
   return bestSlot;
 }
 
-// ─── screen ──────────────────────────────────────────────────────────────────
+// -- screen -------------------------------------------------------------------
 
 type Props = {
   medications: UserMedication[];
@@ -63,6 +61,14 @@ type Props = {
 };
 
 export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
+  const [detailMed, setDetailMed] = useState<UserMedication | null>(null);
+  const [detailGradient, setDetailGradient] = useState<GradientKey>('lightBlue');
+
+  const openDetail = (med: UserMedication, gradient: GradientKey) => {
+    setDetailGradient(gradient);
+    setDetailMed(med);
+  };
+
   const totalDoses = medications.reduce((s, m) => s + m.scheduleTimes.length, 0);
   const nextSlot = computeNextSlot(medications);
 
@@ -74,91 +80,106 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
   const unscheduled = medications.filter((m) => m.scheduleTimes.length === 0);
 
   return (
-    <ScrollView
-      style={styles.content}
-      contentContainerStyle={styles.contentInner}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>Today's Schedule</Text>
-          <Text style={styles.title}>Medicine</Text>
-        </View>
-        <Pressable onPress={onAdd} style={[styles.iconButton, styles.iconButtonAccent]}>
-          <Plus size={20} strokeWidth={2.4} color={colors.white} />
-        </Pressable>
-      </View>
-
-      <LinearGradient
-        colors={gradients.adherence as unknown as readonly [string, string]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.summaryCard}
+    <>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentInner}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.cardLabel}>Medications saved</Text>
-        <Text style={styles.summaryValue}>
-          {medications.length}
-          <Text style={styles.summaryUnit}>
-            {medications.length === 1 ? ' medication' : ' medications'}
-          </Text>
-        </Text>
-        <Text style={styles.summaryHint}>
-          {totalDoses > 0
-            ? `${totalDoses} dose${totalDoses === 1 ? '' : 's'} scheduled today`
-            : 'Scan a label to set up your schedule'}
-        </Text>
-      </LinearGradient>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.kicker}>Today''s Schedule</Text>
+            <Text style={styles.title}>Medicine</Text>
+          </View>
+          <Pressable onPress={onAdd} style={[styles.iconButton, styles.iconButtonAccent]}>
+            <Plus size={20} strokeWidth={2.4} color={colors.white} />
+          </Pressable>
+        </View>
 
-      {medications.length === 0 ? (
-        <EmptyState onAdd={onAdd} />
-      ) : (
-        <>
-          {activeSlots.length > 0 && (
-            <View style={styles.timeline}>
-              {activeSlots.map(({ slot, meds }, i) => (
-                <TimelineSlot
-                  key={slot.id}
-                  slot={slot}
-                  meds={meds}
-                  isNext={slot.id === nextSlot}
-                  isLast={i === activeSlots.length - 1 && unscheduled.length === 0}
-                  onDelete={onDelete}
-                />
-              ))}
-            </View>
-          )}
-          {unscheduled.length > 0 && (
-            <View style={styles.unscheduledSection}>
-              <Text style={styles.unscheduledTitle}>No schedule set</Text>
-              <View style={styles.doseList}>
-                {unscheduled.map((med, i) => (
-                  <DoseCard
-                    key={med.id}
-                    med={med}
-                    gradient={gradientForIndex(i)}
-                    isNext={false}
-                    onDelete={() => onDelete(med.id)}
+        <LinearGradient
+          colors={gradients.adherence as unknown as readonly [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.summaryCard}
+        >
+          <Text style={styles.cardLabel}>Medications saved</Text>
+          <Text style={styles.summaryValue}>
+            {medications.length}
+            <Text style={styles.summaryUnit}>
+              {medications.length === 1 ? ' medication' : ' medications'}
+            </Text>
+          </Text>
+          <Text style={styles.summaryHint}>
+            {totalDoses > 0
+              ? `${totalDoses} dose${totalDoses === 1 ? '' : 's'} scheduled today`
+              : 'Scan a label to set up your schedule'}
+          </Text>
+        </LinearGradient>
+
+        {medications.length === 0 ? (
+          <EmptyState onAdd={onAdd} />
+        ) : (
+          <>
+            {activeSlots.length > 0 && (
+              <View style={styles.timeline}>
+                {activeSlots.map(({ slot, meds }, i) => (
+                  <TimelineSlot
+                    key={slot.id}
+                    slot={slot}
+                    meds={meds}
+                    isNext={slot.id === nextSlot}
+                    isLast={i === activeSlots.length - 1 && unscheduled.length === 0}
+                    onDelete={onDelete}
+                    onInfo={openDetail}
                   />
                 ))}
               </View>
-            </View>
-          )}
-        </>
-      )}
-    </ScrollView>
+            )}
+            {unscheduled.length > 0 && (
+              <View style={styles.unscheduledSection}>
+                <Text style={styles.unscheduledTitle}>No schedule set</Text>
+                <View style={styles.doseList}>
+                  {unscheduled.map((med, i) => {
+                    const gradient = gradientForIndex(i);
+                    return (
+                      <DoseCard
+                        key={med.id}
+                        med={med}
+                        gradient={gradient}
+                        isNext={false}
+                        onDelete={() => onDelete(med.id)}
+                        onInfo={() => openDetail(med, gradient)}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      <MedicationDetailModal
+        visible={detailMed !== null}
+        medication={detailMed}
+        gradientKey={detailGradient}
+        onClose={() => setDetailMed(null)}
+      />
+    </>
   );
 }
 
-// ─── timeline slot ────────────────────────────────────────────────────────────
+// -- timeline slot -------------------------------------------------------------
 
 function TimelineSlot({
-  slot, meds, isNext, isLast, onDelete,
+  slot, meds, isNext, isLast, onDelete, onInfo,
 }: {
   slot: (typeof SLOTS)[number];
   meds: UserMedication[];
   isNext: boolean;
   isLast: boolean;
   onDelete: (id: string) => void;
+  onInfo: (med: UserMedication, gradient: GradientKey) => void;
 }) {
   const { Icon } = slot;
   return (
@@ -181,55 +202,67 @@ function TimelineSlot({
           <Text style={styles.slotTime}>{slot.time}</Text>
         </View>
         <View style={styles.doseList}>
-          {meds.map((med, i) => (
-            <DoseCard
-              key={med.id}
-              med={med}
-              gradient={gradientForIndex(i)}
-              isNext={isNext}
-              onDelete={() => onDelete(med.id)}
-            />
-          ))}
+          {meds.map((med, i) => {
+            const gradient = gradientForIndex(i);
+            return (
+              <DoseCard
+                key={med.id}
+                med={med}
+                gradient={gradient}
+                isNext={isNext}
+                onDelete={() => onDelete(med.id)}
+                onInfo={() => onInfo(med, gradient)}
+              />
+            );
+          })}
         </View>
       </View>
     </View>
   );
 }
 
-// ─── dose card ────────────────────────────────────────────────────────────────
+// -- dose card ----------------------------------------------------------------
 
 function DoseCard({
-  med, gradient, isNext, onDelete,
+  med, gradient, isNext, onDelete, onInfo,
 }: {
   med: UserMedication;
   gradient: GradientKey;
   isNext: boolean;
   onDelete: () => void;
+  onInfo: () => void;
 }) {
   return (
-    <LinearGradient
-      colors={gradients[gradient] as unknown as readonly [string, string]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.doseCard, isNext && styles.doseCardNext]}
-    >
-      <View style={styles.doseIconWrap}>
-        <PillIcon size={18} strokeWidth={2.2} color={colors.dark} />
-      </View>
-      <View style={styles.doseInfo}>
-        <Text style={styles.doseName} numberOfLines={1}>{med.displayName}</Text>
-        <Text style={styles.doseMeta} numberOfLines={1}>
-          {med.dosageText ?? 'No dosage info'}
-        </Text>
-      </View>
-      <Pressable onPress={onDelete} style={styles.deleteBtn} hitSlop={12}>
-        <Trash2 size={14} strokeWidth={2} color="rgba(0,0,0,0.35)" />
-      </Pressable>
-    </LinearGradient>
+    <Pressable onLongPress={onInfo} delayLongPress={400}>
+      <LinearGradient
+        colors={gradients[gradient] as unknown as readonly [string, string]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.doseCard, isNext && styles.doseCardNext]}
+      >
+        <View style={styles.doseIconWrap}>
+          <PillIcon size={18} strokeWidth={2.2} color={colors.dark} />
+        </View>
+        <View style={styles.doseInfo}>
+          <Text style={styles.doseName} numberOfLines={1}>{med.displayName}</Text>
+          <Text style={styles.doseMeta} numberOfLines={1}>
+            {med.dosageText ?? 'No dosage info'}
+          </Text>
+        </View>
+        <View style={styles.actionCluster}>
+          <Pressable onPress={onInfo} style={styles.actionBtn} hitSlop={10}>
+            <Info size={14} strokeWidth={2.2} color="rgba(0,0,0,0.4)" />
+          </Pressable>
+          <Pressable onPress={onDelete} style={styles.actionBtn} hitSlop={12}>
+            <Trash2 size={14} strokeWidth={2} color="rgba(0,0,0,0.35)" />
+          </Pressable>
+        </View>
+      </LinearGradient>
+    </Pressable>
   );
 }
 
-// ─── empty state ──────────────────────────────────────────────────────────────
+// -- empty state --------------------------------------------------------------
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
@@ -249,7 +282,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-// ─── styles ───────────────────────────────────────────────────────────────────
+// -- styles -------------------------------------------------------------------
 
 const RAIL_W = 40;
 const NODE = 28;
@@ -294,7 +327,8 @@ const styles = StyleSheet.create({
   doseInfo: { flex: 1 },
   doseName: { fontSize: 15, color: '#000', fontFamily: fonts.semiBold, letterSpacing: -0.3 },
   doseMeta: { fontSize: 12, color: colors.meta, fontFamily: fonts.medium, letterSpacing: -0.2, marginTop: 1 },
-  deleteBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center' },
+  actionCluster: { flexDirection: 'row', gap: 4 },
+  actionBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center' },
 
   unscheduledSection: { paddingHorizontal: 28, gap: 10 },
   unscheduledTitle: { fontSize: 13, color: colors.meta, fontFamily: fonts.medium, letterSpacing: -0.2 },
