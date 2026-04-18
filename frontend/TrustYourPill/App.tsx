@@ -9,6 +9,7 @@ import {
 } from '@expo-google-fonts/geist';
 import { BottomNav, type NavAction, type TabId } from './components/BottomNav';
 import { ScanScreen } from './components/ScanScreen';
+import { MedOverviewScreen } from './components/MedOverviewScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { PillLibraryScreen } from './screens/PillLibraryScreen';
 import { SymptomsScreen } from './screens/SymptomsScreen';
@@ -22,7 +23,8 @@ export default function App() {
   });
 
   const [tab, setTab] = useState<TabId>('home');
-  const [overlay, setOverlay] = useState<null | 'checkup' | 'scan'>(null);
+  const [overlay, setOverlay] = useState<null | 'checkup' | 'scan' | 'medOverview'>(null);
+  const [scannedName, setScannedName] = useState<string | null>(null);
 
   const onAction = useCallback((action: NavAction) => {
     if (action === 'scan') {
@@ -35,6 +37,11 @@ export default function App() {
   const openCheckup = useCallback(() => setOverlay('checkup'), []);
   const closeOverlay = useCallback(() => setOverlay(null), []);
   const openScan = useCallback(() => setOverlay('scan'), []);
+  
+  const handleScanConfirm = useCallback((name: string) => {
+    setScannedName(name);
+    setOverlay('medOverview');
+  }, []);
 
   if (!fontsLoaded) return null;
 
@@ -54,7 +61,17 @@ export default function App() {
 
         <BottomNav activeTab={tab} onAction={onAction} />
       </View>
-      <ScanScreen visible={overlay === 'scan'} onClose={closeOverlay} />
+      <ScanScreen 
+        visible={overlay === 'scan'} 
+        onClose={closeOverlay} 
+        onConfirm={handleScanConfirm}
+      />
+      <MedOverviewScreen
+        visible={overlay === 'medOverview'}
+        medicationName={scannedName}
+        onClose={closeOverlay}
+        onAdd={closeOverlay}
+      />
     </SafeAreaView>
   );
 }
