@@ -16,6 +16,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { PillLibraryScreen } from './screens/PillLibraryScreen';
 import { SymptomsScreen } from './screens/SymptomsScreen';
 import { CheckupScreen } from './screens/CheckupScreen';
+import { AnalysisScreen } from './screens/AnalysisScreen';
 import {
   getUserMedications,
   addUserMedication,
@@ -199,6 +200,10 @@ export default function App() {
             onAdd={openScan}
             onDelete={handleDeleteMedication}
           />
+        </AnimatedScreen>
+
+        <AnimatedScreen visible={tab === 'analysis'}>
+          <AnalysisScreen medications={userMedications} />
         </AnimatedScreen>
 
         {overlayMounted && (

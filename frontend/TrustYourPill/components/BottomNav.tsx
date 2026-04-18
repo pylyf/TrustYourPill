@@ -11,6 +11,7 @@ import { BlurView } from 'expo-blur';
 import {
   Activity,
   Camera,
+  FlaskConical,
   Home,
   Pill,
   type LucideIcon,
@@ -22,7 +23,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const geistMedium = 'Geist_500Medium';
 
-export type TabId = 'home' | 'symptoms' | 'library';
+export type TabId = 'home' | 'symptoms' | 'library' | 'analysis';
 export type NavAction = TabId | 'scan';
 
 type TabItem = { id: TabId; label: string; icon: LucideIcon };
@@ -31,6 +32,7 @@ const TABS: TabItem[] = [
   { id: 'home',     label: 'Home',     icon: Home },
   { id: 'symptoms', label: 'Symptoms', icon: Activity },
   { id: 'library',  label: 'Library',  icon: Pill },
+  { id: 'analysis', label: 'Analysis', icon: FlaskConical },
 ];
 
 const INACTIVE_SIZE = 48;
