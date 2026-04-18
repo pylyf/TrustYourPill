@@ -63,7 +63,8 @@ export async function saveUserMedicationRoute(
   const result = await userMedicationService.saveUserMedication(
     {
       userId: paramsResult.data.id,
-      ...bodyResult.data
+      ...bodyResult.data,
+      analysis: bodyResult.data.analysis ?? null,
     },
     traceContext
   );

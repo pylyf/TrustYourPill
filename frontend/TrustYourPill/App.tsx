@@ -24,6 +24,7 @@ import {
   searchMedication,
   type UserMedication,
   type MedicationCandidate,
+  type MedicationAnalysis,
 } from './lib/api';
 
 /** Wraps a screen so it fades + slides up each time it becomes visible */
@@ -71,6 +72,7 @@ export default function App() {
   const [overlay, setOverlay] = useState<null | 'checkup' | 'scan' | 'medOverview'>(null);
   const [scannedName, setScannedName] = useState<string | null>(null);
   const [scannedCandidate, setScannedCandidate] = useState<MedicationCandidate | null>(null);
+  const [scannedDosage, setScannedDosage] = useState<string | null>(null);
   const [userMedications, setUserMedications] = useState<UserMedication[]>([]);
   const [isEmergencyDrawerVisible, setIsEmergencyDrawerVisible] = useState(false);
   const [isAppointmentsDrawerVisible, setIsAppointmentsDrawerVisible] = useState(false);
@@ -121,8 +123,9 @@ export default function App() {
   const closeOverlay = useCallback(() => setOverlay(null), []);
   const openScan = useCallback(() => setOverlay('scan'), []);
 
-  const handleScanConfirm = useCallback(async (name: string) => {
+  const handleScanConfirm = useCallback(async (name: string, dosageText?: string | null) => {
     setScannedName(name);
+    setScannedDosage(dosageText ?? null);
     setScannedCandidate(null);
     setOverlay('medOverview');
     try {
@@ -135,7 +138,7 @@ export default function App() {
     }
   }, []);
 
-  const handleAddMedication = useCallback(async () => {
+  const handleAddMedication = useCallback(async (scheduleTimes: string[], analysis: MedicationAnalysis | null) => {
     if (!scannedName) return;
     try {
       const candidate = scannedCandidate;
@@ -148,6 +151,9 @@ export default function App() {
           rxaui: candidate.rxaui,
           source: candidate.source,
           searchScore: candidate.confidenceScore,
+          dosageText: scannedDosage ?? undefined,
+          scheduleTimes,
+          analysis,
         });
       } else {
         await addUserMedication({
@@ -156,6 +162,9 @@ export default function App() {
           normalizedName: scannedName.toLowerCase(),
           rxcui: scannedName.toLowerCase().replace(/\s+/g, '-'),
           source: 'scan',
+          dosageText: scannedDosage ?? undefined,
+          scheduleTimes,
+          analysis,
         });
       }
       await loadMedications();
@@ -163,7 +172,7 @@ export default function App() {
       // silently fail for hackathon
     }
     setOverlay(null);
-  }, [scannedName, scannedCandidate, loadMedications]);
+  }, [scannedName, scannedCandidate, scannedDosage, loadMedications]);
 
   const handleDeleteMedication = useCallback(async (medId: string) => {
     try {
@@ -184,6 +193,7 @@ export default function App() {
       <View style={styles.screen}>
         <AnimatedScreen visible={tab === 'home'}>
           <HomeScreen
+            medications={userMedications}
             onOpenCheckup={openCheckup}
             onOpenEmergency={() => setIsEmergencyDrawerVisible(true)}
             onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)}

@@ -1,5 +1,17 @@
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  UIManager,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Activity, AlertTriangle, Check, Clock } from 'lucide-react-native';
 import { colors, fonts, gradients } from '../theme';
@@ -40,12 +52,111 @@ const SIDE_EFFECTS: Record<string, SymptomKey[]> = {
 
 const ACTIVE_PILLS = ['Paracetamol', 'Ibuprofen'];
 
+function SymptomChipButton({
+  item,
+  active,
+  onPress,
+  delay,
+}: {
+  item: { key: SymptomKey; emoji: string; label: string };
+  active: boolean;
+  onPress: () => void;
+  delay: number;
+}) {
+  const mount = useRef(new Animated.Value(0)).current;
+  const activeAnim = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const pressAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(mount, {
+      toValue: 1,
+      duration: 520,
+      delay,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [delay, mount]);
+
+  useEffect(() => {
+    Animated.spring(activeAnim, {
+      toValue: active ? 1 : 0,
+      damping: 12,
+      mass: 0.9,
+      stiffness: 170,
+      useNativeDriver: true,
+    }).start();
+  }, [active, activeAnim]);
+
+  const scale = Animated.multiply(
+    activeAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.05],
+    }),
+    pressAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 0.96],
+    })
+  );
+
+  return (
+    <Animated.View
+      style={{
+        opacity: mount,
+        transform: [
+          {
+            translateY: mount.interpolate({
+              inputRange: [0, 1],
+              outputRange: [22, 0],
+            }),
+          },
+          {
+            scale,
+          },
+        ],
+      }}
+    >
+      <Pressable
+        key={item.key}
+        onPress={onPress}
+        onPressIn={() => {
+          Animated.spring(pressAnim, {
+            toValue: 1,
+            damping: 14,
+            stiffness: 220,
+            useNativeDriver: true,
+          }).start();
+        }}
+        onPressOut={() => {
+          Animated.spring(pressAnim, {
+            toValue: 0,
+            damping: 14,
+            stiffness: 220,
+            useNativeDriver: true,
+          }).start();
+        }}
+        style={[styles.symptomChip, active && styles.symptomChipActive]}
+      >
+        <Text style={styles.symptomEmoji}>{item.emoji}</Text>
+        <Text style={[styles.symptomLabel, active && styles.symptomLabelActive]}>
+          {item.label}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export function SymptomsScreen() {
   const [selected, setSelected] = useState<Set<SymptomKey>>(new Set());
   const [feelingGood, setFeelingGood] = useState(false);
   const [otherSymptom, setOtherSymptom] = useState('');
+  const pageAnim = useRef(new Animated.Value(0)).current;
+  const goodAnim = useRef(new Animated.Value(0)).current;
+  const ctaAnim = useRef(new Animated.Value(0)).current;
+  const otherReveal = useRef(new Animated.Value(0)).current;
+  const insightReveal = useRef(new Animated.Value(0)).current;
 
   function toggle(key: SymptomKey) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setFeelingGood(false);
     setSelected((prev) => {
       const next = new Set(prev);
@@ -71,67 +182,205 @@ export function SymptomsScreen() {
     });
   }, [feelingGood, selected]);
 
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    Animated.timing(pageAnim, {
+      toValue: 1,
+      duration: 700,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [pageAnim]);
+
+  useEffect(() => {
+    Animated.spring(goodAnim, {
+      toValue: feelingGood ? 1 : 0,
+      damping: 14,
+      mass: 0.9,
+      stiffness: 160,
+      useNativeDriver: true,
+    }).start();
+  }, [feelingGood, goodAnim]);
+
+  useEffect(() => {
+    Animated.spring(ctaAnim, {
+      toValue: canSubmit ? 1 : 0,
+      damping: 16,
+      stiffness: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [canSubmit, ctaAnim]);
+
+  useEffect(() => {
+    Animated.timing(otherReveal, {
+      toValue: otherSelected ? 1 : 0,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [otherSelected, otherReveal]);
+
+  useEffect(() => {
+    Animated.timing(insightReveal, {
+      toValue: !feelingGood && selected.size > 0 ? 1 : 0,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [feelingGood, selected.size, insightReveal]);
+
+  function revealStyle(offset: number, delay = 0) {
+    return {
+      opacity: pageAnim.interpolate({
+        inputRange: [0, 0.55, 1],
+        outputRange: [0, 0.12, 1],
+      }),
+      transform: [
+        {
+          translateY: pageAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [offset + delay * 0.05, 0],
+          }),
+        },
+      ],
+    } as const;
+  }
+
   return (
     <ScrollView
       style={styles.content}
       contentContainerStyle={styles.contentInner}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
+      <Animated.View style={[styles.header, revealStyle(30)]}>
         <Text style={styles.kicker}>Symptoms</Text>
         <Text style={styles.title}>How do you feel?</Text>
         <View style={styles.metaRow}>
           <Clock size={13} strokeWidth={2.2} color={colors.meta} />
           <Text style={styles.meta}>Last check-in · Today 09:12</Text>
         </View>
-      </View>
+      </Animated.View>
 
-      <LinearGradient
-        colors={gradients.sage as unknown as readonly [string, string]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.feelingGoodCard}
+      <Animated.View
+        style={[
+          revealStyle(42, 80),
+          {
+            transform: [
+              {
+                translateY: pageAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [42, 0],
+                }),
+              },
+              {
+                scale: goodAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.015],
+                }),
+              },
+            ],
+          },
+        ]}
       >
-        <Pressable
-          onPress={() => {
-            setFeelingGood((v) => !v);
-            setSelected(new Set());
-            setOtherSymptom('');
-          }}
-          style={styles.feelingGoodInner}
+        <LinearGradient
+          colors={gradients.sage as unknown as readonly [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.feelingGoodCard}
         >
-          <View style={[styles.checkCircle, feelingGood && styles.checkCircleActive]}>
-            {feelingGood ? <Check size={16} strokeWidth={2.6} color={colors.white} /> : null}
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.feelingGoodTitle}>Feeling good</Text>
-            <Text style={styles.feelingGoodMeta}>Log a healthy day</Text>
-          </View>
-          <Activity size={20} strokeWidth={2.2} color="#1C6B3A" />
-        </Pressable>
-      </LinearGradient>
+          <Pressable
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setFeelingGood((v) => !v);
+              setSelected(new Set());
+              setOtherSymptom('');
+            }}
+            style={styles.feelingGoodInner}
+          >
+            <Animated.View
+              style={[
+                styles.checkCircle,
+                feelingGood && styles.checkCircleActive,
+                {
+                  transform: [
+                    {
+                      scale: goodAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.14],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {feelingGood ? <Check size={16} strokeWidth={2.6} color={colors.white} /> : null}
+            </Animated.View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.feelingGoodTitle}>Feeling good</Text>
+              <Text style={styles.feelingGoodMeta}>Log a healthy day</Text>
+            </View>
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    rotate: goodAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '8deg'],
+                    }),
+                  },
+                  {
+                    scale: goodAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 1.08],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <Activity size={20} strokeWidth={2.2} color="#1C6B3A" />
+            </Animated.View>
+          </Pressable>
+        </LinearGradient>
+      </Animated.View>
 
-      <Text style={styles.sectionTitle}>Or pick what's off</Text>
+      <Animated.Text style={[styles.sectionTitle, revealStyle(30, 120)]}>Or pick what's off</Animated.Text>
       <View style={styles.chipGrid}>
         {SYMPTOMS.map((s) => {
           const active = selected.has(s.key);
           return (
-            <Pressable
+            <SymptomChipButton
               key={s.key}
+              item={s}
+              active={active}
               onPress={() => toggle(s.key)}
-              style={[styles.symptomChip, active && styles.symptomChipActive]}
-            >
-              <Text style={styles.symptomEmoji}>{s.emoji}</Text>
-              <Text style={[styles.symptomLabel, active && styles.symptomLabelActive]}>
-                {s.label}
-              </Text>
-            </Pressable>
+              delay={160 + SYMPTOMS.findIndex((item) => item.key === s.key) * 45}
+            />
           );
         })}
       </View>
 
       {otherSelected ? (
-        <View style={styles.otherInputWrap}>
+        <Animated.View
+          style={[
+            styles.otherInputWrap,
+            {
+              opacity: otherReveal,
+              transform: [
+                {
+                  translateY: otherReveal.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [16, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <Text style={styles.otherLabel}>What symptom are you feeling?</Text>
           <TextInput
             value={otherSymptom}
@@ -140,16 +389,83 @@ export function SymptomsScreen() {
             placeholderTextColor="rgba(0,0,0,0.35)"
             style={styles.otherInput}
           />
-        </View>
+        </Animated.View>
       ) : null}
 
       {!feelingGood && selected.size > 0 ? (
-        <View style={styles.sideEffectsBlock}>
+        <Animated.View
+          style={[
+            styles.sideEffectsBlock,
+            {
+              opacity: insightReveal,
+              transform: [
+                {
+                  translateY: insightReveal.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [24, 0],
+                  }),
+                },
+                {
+                  scale: insightReveal.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.98, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <Text style={styles.sectionTitle}>Could this be related?</Text>
           {possibleSideEffects.length > 0 ? (
             possibleSideEffects.map((item, index) => (
-              <LinearGradient
+              <Animated.View
                 key={`${item.pill}-${item.symptom}-${index}`}
+                style={{
+                  opacity: insightReveal.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: insightReveal.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [18 + index * 8, 0],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <LinearGradient
+                  colors={gradients.warningChip as unknown as readonly [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.sideEffectCard}
+                >
+                  <AlertTriangle size={18} strokeWidth={2.3} color="#8A3A14" />
+                  <View style={styles.sideEffectCopy}>
+                    <Text style={styles.sideEffectTitle}>{item.pill}</Text>
+                    <Text style={styles.sideEffectBody}>
+                      This medication may be causing {item.symptom}: {item.pill}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </Animated.View>
+            ))
+          ) : (
+            <Animated.View
+              style={{
+                opacity: insightReveal,
+                transform: [
+                  {
+                    translateY: insightReveal.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [18, 0],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <LinearGradient
                 colors={gradients.warningChip as unknown as readonly [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -157,47 +473,82 @@ export function SymptomsScreen() {
               >
                 <AlertTriangle size={18} strokeWidth={2.3} color="#8A3A14" />
                 <View style={styles.sideEffectCopy}>
-                  <Text style={styles.sideEffectTitle}>{item.pill}</Text>
+                  <Text style={styles.sideEffectTitle}>Medication check</Text>
                   <Text style={styles.sideEffectBody}>
-                    This medication may be causing {item.symptom}: {item.pill}
+                    {`No direct medication match found for ${selectedLabels.join(', ')} yet.`}
                   </Text>
                 </View>
               </LinearGradient>
-            ))
-          ) : (
-            <LinearGradient
-              colors={gradients.warningChip as unknown as readonly [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.sideEffectCard}
-            >
-              <AlertTriangle size={18} strokeWidth={2.3} color="#8A3A14" />
-              <View style={styles.sideEffectCopy}>
-                <Text style={styles.sideEffectTitle}>Medication check</Text>
-                <Text style={styles.sideEffectBody}>
-                  {`No direct medication match found for ${selectedLabels.join(', ')} yet.`}
-                </Text>
-              </View>
-            </LinearGradient>
+            </Animated.View>
           )}
-        </View>
+        </Animated.View>
       ) : null}
 
-      <Pressable style={[styles.cta, !canSubmit && styles.ctaDisabled]} disabled={!canSubmit}>
-        <Text style={styles.ctaText}>
-          {feelingGood ? 'Save check-in' : loggedCount > 0 ? `Log ${loggedCount} symptom${loggedCount === 1 ? '' : 's'}` : 'Select to log'}
-        </Text>
-      </Pressable>
+      <Animated.View
+        style={[
+          revealStyle(28, 220),
+          {
+            opacity: Animated.add(
+              pageAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 0.35],
+              }),
+              ctaAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.5, 0.65],
+              })
+            ),
+            transform: [
+              {
+                translateY: pageAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [28, 0],
+                }),
+              },
+              {
+                scale: ctaAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.985, 1],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <Pressable style={[styles.cta, !canSubmit && styles.ctaDisabled]} disabled={!canSubmit}>
+          <Text style={styles.ctaText}>
+            {feelingGood ? 'Save check-in' : loggedCount > 0 ? `Log ${loggedCount} symptom${loggedCount === 1 ? '' : 's'}` : 'Select to log'}
+          </Text>
+        </Pressable>
+      </Animated.View>
 
-      <Text style={styles.sectionTitle}>Recent</Text>
-      <View style={styles.historyList}>
+      <Animated.Text style={[styles.sectionTitle, revealStyle(26, 260)]}>Recent</Animated.Text>
+      <Animated.View style={[styles.historyList, revealStyle(34, 320)]}>
         {HISTORY.map((h) => (
-          <View key={h.id} style={styles.historyItem}>
+          <Animated.View
+            key={h.id}
+            style={{
+              opacity: pageAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+              transform: [
+                {
+                  translateY: pageAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [22 + Number(h.id) * 8, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            <View style={styles.historyItem}>
             <Text style={styles.historyWhen}>{h.when}</Text>
             <Text style={styles.historyItems}>{h.items.join(' · ')}</Text>
-          </View>
+            </View>
+          </Animated.View>
         ))}
-      </View>
+      </Animated.View>
     </ScrollView>
   );
 }
