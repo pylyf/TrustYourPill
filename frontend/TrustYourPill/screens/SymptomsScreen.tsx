@@ -178,13 +178,12 @@ function SymptomCard({
 
 export function SymptomsScreen({ medications }: { medications: UserMedication[] }) {
   const [selected, setSelected] = useState<Set<SymptomKey>>(new Set());
-  const [feelingGood, setFeelingGood] = useState(false);
+  const [checkInState, setCheckInState] = useState<'good' | 'notGood' | null>(null);
   const [otherSymptom, setOtherSymptom] = useState('');
   const [history, setHistory] = useState<SymptomLog[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [hasRequestedInsights, setHasRequestedInsights] = useState(false);
   const pageAnim = useRef(new Animated.Value(0)).current;
-  const goodAnim = useRef(new Animated.Value(0)).current;
   const ctaAnim = useRef(new Animated.Value(0)).current;
   const otherReveal = useRef(new Animated.Value(0)).current;
   const insightReveal = useRef(new Animated.Value(0)).current;
@@ -194,10 +193,12 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
   }, []);
 
   const lastCheckIn = history[0] ? formatLogDate(history[0].loggedAt) : null;
+  const feelingGood = checkInState === 'good';
+  const showingSymptoms = checkInState === 'notGood';
 
   function toggle(key: SymptomKey) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setFeelingGood(false);
+    setCheckInState('notGood');
     setHasRequestedInsights(false);
     setSelected((prev) => {
       const next = new Set(prev);
@@ -209,16 +210,18 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
 
   const otherSelected = selected.has('other');
   const otherFilled = otherSymptom.trim().length > 0;
-  const canSubmit = feelingGood || (selected.size > 0 && (!otherSelected || otherFilled));
+  const canSubmit = feelingGood || (showingSymptoms && selected.size > 0 && (!otherSelected || otherFilled));
   const loggedCount = selected.size;
   const selectedEntries = SYMPTOMS.filter((item) => selected.has(item.key));
   const selectedLabels = selectedEntries.map((item) => item.label);
   const showInsights = hasRequestedInsights && !feelingGood && selected.size > 0;
   const primarySummary = feelingGood
     ? 'You are logging a steady day.'
-    : selected.size > 0
+    : showingSymptoms && selected.size > 0
       ? `${selected.size} symptom${selected.size === 1 ? '' : 's'} selected`
-      : 'Choose what feels different today';
+      : showingSymptoms
+        ? 'Choose what feels different today'
+        : 'Start with a quick check-in';
 
   const possibleSideEffects = useMemo(() => {
     if (feelingGood || selected.size === 0) return [];
@@ -257,7 +260,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
       });
       setHistory((prev) => [log, ...prev]);
       setSelected(new Set());
-      setFeelingGood(false);
+      setCheckInState(null);
       setOtherSymptom('');
       setHasRequestedInsights(false);
     } catch {
@@ -280,16 +283,6 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
       useNativeDriver: true,
     }).start();
   }, [pageAnim]);
-
-  useEffect(() => {
-    Animated.spring(goodAnim, {
-      toValue: feelingGood ? 1 : 0,
-      damping: 14,
-      mass: 0.9,
-      stiffness: 160,
-      useNativeDriver: true,
-    }).start();
-  }, [feelingGood, goodAnim]);
 
   useEffect(() => {
     Animated.spring(ctaAnim, {
@@ -374,8 +367,8 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
               <Text style={styles.heroTitle}>{primarySummary}</Text>
             </View>
             <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeValue}>{feelingGood ? 'Good' : selected.size}</Text>
-              <Text style={styles.heroBadgeLabel}>{feelingGood ? 'state' : 'picked'}</Text>
+              <Text style={styles.heroBadgeValue}>{feelingGood ? 'Good' : showingSymptoms ? selected.size : '...'}</Text>
+              <Text style={styles.heroBadgeLabel}>{feelingGood ? 'state' : showingSymptoms ? 'picked' : 'step'}</Text>
             </View>
           </View>
 
@@ -402,126 +395,128 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
         style={[
           styles.modeCard,
           revealStyle(38, 110),
-          {
-            transform: [
-              {
-                translateY: pageAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [38, 0],
-                }),
-              },
-              {
-                scale: goodAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, 1.01],
-                }),
-              },
-            ],
-          },
         ]}
       >
-        <Pressable
-          onPress={() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setFeelingGood((value) => !value);
-            setHasRequestedInsights(false);
-            setSelected(new Set());
-            setOtherSymptom('');
-          }}
-          style={[styles.modeCardInner, feelingGood && styles.modeCardInnerActive]}
-        >
-          <View style={[styles.modeIcon, feelingGood && styles.modeIconActive]}>
-            {feelingGood ? (
-              <Check size={18} strokeWidth={2.7} color={colors.white} />
-            ) : (
-              <Activity size={18} strokeWidth={2.4} color="#1C6B3A" />
-            )}
-          </View>
-          <View style={styles.modeCopy}>
-            <Text style={[styles.modeTitle, feelingGood && styles.modeTitleActive]}>Feeling steady</Text>
-            <Text style={[styles.modeMeta, feelingGood && styles.modeMetaActive]}>
-              Tap once to log a healthy day without selecting any symptoms.
-            </Text>
-          </View>
-          <Animated.View
-            style={{
-              transform: [
-                {
-                  translateX: goodAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 3],
-                  }),
-                },
-              ],
-            }}
-          >
-            <ChevronRight size={18} strokeWidth={2.3} color={feelingGood ? colors.white : colors.metaStrong} />
-          </Animated.View>
-        </Pressable>
-      </Animated.View>
-
-      <Animated.View style={[styles.sectionBlock, revealStyle(24, 140)]}>
-        <View style={styles.sectionHeadingRow}>
-          <View>
-            <Text style={styles.sectionEyebrow}>Symptoms</Text>
-            <Text style={styles.sectionTitle}>What feels off?</Text>
-          </View>
-          <View style={styles.selectionBadge}>
-            <Text style={styles.selectionBadgeText}>
-              {selected.size === 0 ? 'None selected' : `${selected.size} selected`}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.sectionBody}>
-          Pick all that apply. The cleaner the input, the easier it is to review what may be causing the change.
-        </Text>
-      </Animated.View>
-
-      <View style={styles.symptomGrid}>
-        {SYMPTOMS.map((item, index) => (
-          <SymptomCard
-            key={item.key}
-            item={item}
-            active={selected.has(item.key)}
-            onPress={() => toggle(item.key)}
-            delay={170 + index * 40}
-          />
-        ))}
-      </View>
-
-      {otherSelected ? (
-        <Animated.View
-          style={[
-            styles.otherInputWrap,
-            {
-              opacity: otherReveal,
-              transform: [
-                {
-                  translateY: otherReveal.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [16, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.otherLabel}>Describe the symptom</Text>
-          <TextInput
-            value={otherSymptom}
-            onChangeText={(value) => {
+        <View style={styles.modeSwitcher}>
+          <Pressable
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setCheckInState('good');
               setHasRequestedInsights(false);
-              setOtherSymptom(value);
+              setSelected(new Set());
+              setOtherSymptom('');
             }}
-            placeholder="Type your symptom"
-            placeholderTextColor="rgba(0,0,0,0.35)"
-            style={styles.otherInput}
-          />
-        </Animated.View>
+            style={[styles.modeOption, styles.modeOptionGood, feelingGood && styles.modeOptionGoodActive]}
+          >
+            <View style={[styles.modeIcon, feelingGood && styles.modeIconActive]}>
+              {feelingGood ? (
+                <Check size={18} strokeWidth={2.7} color={colors.white} />
+              ) : (
+                <Check size={18} strokeWidth={2.4} color="#1C6B3A" />
+              )}
+            </View>
+            <View style={styles.modeCopy}>
+              <Text style={[styles.modeTitle, feelingGood && styles.modeTitleActive]}>I’m okay</Text>
+              <Text style={[styles.modeMeta, feelingGood && styles.modeMetaActive]}>
+                Log a healthy day right away.
+              </Text>
+            </View>
+            <ChevronRight size={18} strokeWidth={2.3} color={feelingGood ? colors.white : colors.metaStrong} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setCheckInState('notGood');
+              setHasRequestedInsights(false);
+            }}
+            style={[styles.modeOption, styles.modeOptionAlert, showingSymptoms && styles.modeOptionAlertActive]}
+          >
+            <View style={[styles.modeIcon, showingSymptoms && styles.modeIconAlertActive]}>
+              <Activity size={18} strokeWidth={2.4} color={showingSymptoms ? colors.white : '#8A3A14'} />
+            </View>
+            <View style={styles.modeCopy}>
+              <Text style={[styles.modeTitle, showingSymptoms && styles.modeTitleActive]}>I’m not okay</Text>
+              <Text style={[styles.modeMeta, showingSymptoms && styles.modeMetaActive]}>
+                Show the symptom options.
+              </Text>
+            </View>
+            <ChevronRight size={18} strokeWidth={2.3} color={showingSymptoms ? colors.white : colors.metaStrong} />
+          </Pressable>
+        </View>
+      </Animated.View>
+
+      {showingSymptoms ? (
+        <>
+          <Animated.View style={[styles.sectionBlock, revealStyle(24, 140)]}>
+            <View style={styles.sectionHeadingRow}>
+              <View>
+                <Text style={styles.sectionEyebrow}>Symptoms</Text>
+                <Text style={styles.sectionTitle}>What feels off?</Text>
+              </View>
+              <View style={styles.selectionBadge}>
+                <Text style={styles.selectionBadgeText}>
+                  {selected.size === 0 ? 'None selected' : `${selected.size} selected`}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.sectionBody}>
+              Pick all that apply. The cleaner the input, the easier it is to review what may be causing the change.
+            </Text>
+          </Animated.View>
+
+          <View style={styles.symptomGrid}>
+            {SYMPTOMS.map((item, index) => (
+              <SymptomCard
+                key={item.key}
+                item={item}
+                active={selected.has(item.key)}
+                onPress={() => toggle(item.key)}
+                delay={170 + index * 40}
+              />
+            ))}
+          </View>
+
+          {otherSelected ? (
+            <Animated.View
+              style={[
+                styles.otherInputWrap,
+                {
+                  opacity: otherReveal,
+                  transform: [
+                    {
+                      translateY: otherReveal.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [16, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Text style={styles.otherLabel}>Describe the symptom</Text>
+              <TextInput
+                value={otherSymptom}
+                onChangeText={(value) => {
+                  setHasRequestedInsights(false);
+                  setOtherSymptom(value);
+                }}
+                placeholder="Type your symptom"
+                placeholderTextColor="rgba(0,0,0,0.35)"
+                style={styles.otherInput}
+              />
+            </Animated.View>
+          ) : null}
+        </>
       ) : null}
 
-      {!showInsights && !feelingGood ? (
-        <Animated.View style={[styles.intakeCard, revealStyle(18, 200)]}>
+      {!showInsights && showingSymptoms ? (
+        <Animated.View
+          style={[
+            styles.intakeCard,
+            revealStyle(18, 200),
+          ]}
+        >
           <Text style={styles.intakeLabel}>Step 1</Text>
           <Text style={styles.intakeTitle}>Tell us your symptoms first</Text>
           <Text style={styles.intakeBody}>
@@ -620,7 +615,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
         </Animated.View>
       ) : null}
 
-      {selected.size > 0 && !feelingGood ? (
+      {selected.size > 0 && showingSymptoms ? (
         <Animated.View style={[styles.selectionPreview, revealStyle(18, 210)]}>
           <Text style={styles.selectionPreviewLabel}>Current selection</Text>
           <Text style={styles.selectionPreviewValue}>{selectedLabels.join(' · ')}</Text>
@@ -668,7 +663,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
                   ? 'Review possible causes'
                   : loggedCount > 0
                     ? `Save ${loggedCount} symptom${loggedCount === 1 ? '' : 's'}`
-                    : 'Select symptoms to continue'}
+                    : 'Choose how you feel to continue'}
           </Text>
         </Pressable>
       </Animated.View>
@@ -872,19 +867,32 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 10 },
   },
-  modeCardInner: {
+  modeSwitcher: {
+    gap: 12,
+  },
+  modeOption: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     padding: 18,
     borderRadius: 26,
-    backgroundColor: '#E8F5EC',
     borderWidth: 1,
+  },
+  modeOptionGood: {
+    backgroundColor: '#E8F5EC',
     borderColor: 'rgba(28,107,58,0.08)',
   },
-  modeCardInnerActive: {
+  modeOptionGoodActive: {
     backgroundColor: '#1C6B3A',
     borderColor: '#1C6B3A',
+  },
+  modeOptionAlert: {
+    backgroundColor: '#FFF4ED',
+    borderColor: 'rgba(138,58,20,0.08)',
+  },
+  modeOptionAlertActive: {
+    backgroundColor: '#B65422',
+    borderColor: '#B65422',
   },
   modeIcon: {
     width: 42,
@@ -895,6 +903,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.78)',
   },
   modeIconActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  modeIconAlertActive: {
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
   modeCopy: { flex: 1, gap: 2 },
