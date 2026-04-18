@@ -103,26 +103,26 @@ function AdherenceHalfRing({
           strokeDasharray={animatedDash}
         />
       </Svg>
-      <View style={{ position: 'absolute', bottom: 4, left: 0, right: 0, alignItems: 'center' }}>
+      <View style={{ position: 'absolute', bottom: 2, left: 0, right: 0, alignItems: 'center' }}>
         <Text
           style={{
-            fontSize: 22,
+            fontSize: 24,
             fontFamily: fonts.semiBold,
             color: textColor,
-            letterSpacing: -1,
-            lineHeight: 24,
+            letterSpacing: -1.1,
+            lineHeight: 26,
           }}
         >
           {percent}%
         </Text>
         <Text
           style={{
-            fontSize: 9,
+            fontSize: 10,
             fontFamily: fonts.medium,
             color: subColor,
-            letterSpacing: 0.4,
+            letterSpacing: 0.8,
             textTransform: 'uppercase',
-            marginTop: 1,
+            marginTop: 2,
           }}
         >
           done
@@ -219,19 +219,21 @@ export function HomeScreen({ onOpenCheckup }: { onOpenCheckup: () => void }) {
           <View style={styles.adherenceTextCol}>
             <View style={styles.adherenceHeaderLight}>
               <View style={styles.adherenceIconWrap}>
-                <Target color="#111827" size={14} strokeWidth={3} />
+                <Target color="#111827" size={15} strokeWidth={2.8} />
               </View>
               <Text style={styles.adherenceLabelLight}>Today's Progress</Text>
             </View>
 
-            <Text style={styles.adherenceValueLight}>
-              2<Text style={styles.adherenceUnitLight}>/4</Text>
-            </Text>
-            <Text style={styles.adherenceSubLight}>pills taken</Text>
+            <View style={styles.adherenceMetricBlock}>
+              <Text style={styles.adherenceValueLight}>
+                2<Text style={styles.adherenceUnitLight}>/4</Text>
+              </Text>
+              <Text style={styles.adherenceSubLight}>pills taken</Text>
+            </View>
           </View>
 
           <View style={styles.adherenceRingWrap}>
-            <AdherenceHalfRing percent={50} size={110} textColor="#000000" />
+            <AdherenceHalfRing percent={50} size={132} textColor="#000000" />
           </View>
         </View>
       </LinearGradient>
@@ -410,56 +412,72 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
-    paddingHorizontal: 24,
-    paddingVertical: 22,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 18,
   },
   adherenceContentLight: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    gap: 18,
   },
-  adherenceTextCol: { flex: 1, paddingBottom: 4 },
+  adherenceTextCol: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    paddingVertical: 2,
+  },
   adherenceHeaderLight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    gap: 10,
   },
   adherenceIconWrap: {
     backgroundColor: '#F3F4F6',
-    padding: 5,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   adherenceLabelLight: {
-    fontSize: 14,
-    lineHeight: 18,
-    color: '#4B5563',
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#475467',
     fontFamily: fonts.semiBold,
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
+  },
+  adherenceMetricBlock: {
+    marginTop: 18,
+    gap: 6,
   },
   adherenceValueLight: {
-    fontSize: 36,
-    lineHeight: 38,
+    fontSize: 48,
+    lineHeight: 50,
     color: '#111827',
     fontFamily: fonts.semiBold,
-    letterSpacing: -1.2,
+    letterSpacing: -1.8,
   },
   adherenceUnitLight: {
-    fontSize: 22,
-    color: '#6B7280',
+    fontSize: 28,
+    lineHeight: 32,
+    color: '#667085',
     fontFamily: fonts.medium,
-    letterSpacing: -0.4,
+    letterSpacing: -0.8,
   },
   adherenceSubLight: {
-    fontSize: 13,
-    color: '#6B7280',
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#667085',
     fontFamily: fonts.medium,
-    letterSpacing: -0.2,
-    marginTop: 4,
+    letterSpacing: -0.3,
   },
   adherenceRingWrap: {
+    width: 146,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    paddingTop: 4,
   },
   row: { flexDirection: 'row', gap: 12, paddingHorizontal: 28 },
   gridCard: { flex: 1, borderRadius: 22, padding: 16 },
