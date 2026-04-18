@@ -579,7 +579,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.1)',
   },
   safeArea: {
-    paddingTop: 68,
     paddingHorizontal: 24,
   },
   navBar: {

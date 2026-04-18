@@ -710,7 +710,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
 
 const styles = StyleSheet.create({
   content: { flex: 1, backgroundColor: '#F8FAFD' },
-  contentInner: { paddingTop: 56, paddingHorizontal: 24, paddingBottom: 138, gap: 16 },
+  contentInner: { paddingHorizontal: 24, paddingBottom: 138, gap: 16 },
   ambientTop: {
     position: 'absolute',
     top: 38,

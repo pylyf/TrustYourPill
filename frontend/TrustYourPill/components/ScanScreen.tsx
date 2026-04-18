@@ -346,7 +346,6 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
 const styles = StyleSheet.create({
   absoluteFill: {
     flex: 1,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
