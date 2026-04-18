@@ -27,7 +27,7 @@ import { colors, fonts, gradients, pillGradientCycle, type GradientKey } from '.
 import type { UserMedication } from '../lib/api';
 import { getPillImage } from '../lib/pillImage';
 
-const avatarUri = 'https://www.figma.com/api/mcp/asset/31e6ebca-e0bc-4a62-af12-46698246312f';
+const avatarImage = require('../assets/demo-user-sam-healthman.jpg');
 
 type NextDoseInfo = { time: string; suffix: 'AM' | 'PM'; medName: string };
 
@@ -334,10 +334,10 @@ export function HomeScreen({
       <View style={styles.hero}>
         <View style={styles.topBar}>
           <View style={styles.profileRow}>
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            <Image source={avatarImage} style={styles.avatar} />
             <View>
               <Text style={styles.greeting}>Good morning,</Text>
-              <Text style={styles.name}>Hans</Text>
+              <Text style={styles.name}>Sam Healthman</Text>
             </View>
           </View>
           <View style={styles.notificationButton}>
