@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Activity, Check, Clock } from 'lucide-react-native';
 import { colors, fonts, gradients } from '../theme';
@@ -12,7 +12,8 @@ type SymptomKey =
   | 'stomach'
   | 'fever'
   | 'cough'
-  | 'soreThroat';
+  | 'soreThroat'
+  | 'other';
 
 const SYMPTOMS: { key: SymptomKey; emoji: string; label: string }[] = [
   { key: 'headache',   emoji: '🤕', label: 'Headache' },
@@ -23,6 +24,7 @@ const SYMPTOMS: { key: SymptomKey; emoji: string; label: string }[] = [
   { key: 'fever',      emoji: '🤒', label: 'Fever' },
   { key: 'cough',      emoji: '😷', label: 'Cough' },
   { key: 'soreThroat', emoji: '🗣️', label: 'Sore throat' },
+  { key: 'other',      emoji: '✍️', label: 'Other' },
 ];
 
 const HISTORY = [
@@ -34,6 +36,7 @@ const HISTORY = [
 export function SymptomsScreen() {
   const [selected, setSelected] = useState<Set<SymptomKey>>(new Set());
   const [feelingGood, setFeelingGood] = useState(false);
+  const [otherSymptom, setOtherSymptom] = useState('');
 
   function toggle(key: SymptomKey) {
     setFeelingGood(false);
@@ -45,7 +48,10 @@ export function SymptomsScreen() {
     });
   }
 
-  const anySelected = selected.size > 0 || feelingGood;
+  const otherSelected = selected.has('other');
+  const otherFilled = otherSymptom.trim().length > 0;
+  const canSubmit = feelingGood || (selected.size > 0 && (!otherSelected || otherFilled));
+  const loggedCount = selected.size;
 
   return (
     <ScrollView
@@ -72,6 +78,7 @@ export function SymptomsScreen() {
           onPress={() => {
             setFeelingGood((v) => !v);
             setSelected(new Set());
+            setOtherSymptom('');
           }}
           style={styles.feelingGoodInner}
         >
@@ -105,9 +112,22 @@ export function SymptomsScreen() {
         })}
       </View>
 
-      <Pressable style={[styles.cta, !anySelected && styles.ctaDisabled]}>
+      {otherSelected ? (
+        <View style={styles.otherInputWrap}>
+          <Text style={styles.otherLabel}>What symptom are you feeling?</Text>
+          <TextInput
+            value={otherSymptom}
+            onChangeText={setOtherSymptom}
+            placeholder="Type your symptom"
+            placeholderTextColor="rgba(0,0,0,0.35)"
+            style={styles.otherInput}
+          />
+        </View>
+      ) : null}
+
+      <Pressable style={[styles.cta, !canSubmit && styles.ctaDisabled]} disabled={!canSubmit}>
         <Text style={styles.ctaText}>
-          {feelingGood ? 'Save check-in' : selected.size > 0 ? `Log ${selected.size} symptom${selected.size === 1 ? '' : 's'}` : 'Select to log'}
+          {feelingGood ? 'Save check-in' : loggedCount > 0 ? `Log ${loggedCount} symptom${loggedCount === 1 ? '' : 's'}` : 'Select to log'}
         </Text>
       </Pressable>
 
@@ -183,6 +203,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium, letterSpacing: -0.3,
   },
   symptomLabelActive: { color: colors.white, fontFamily: fonts.semiBold },
+  otherInputWrap: { gap: 8 },
+  otherLabel: {
+    fontSize: 14, color: colors.metaStrong,
+    fontFamily: fonts.medium, letterSpacing: -0.25,
+  },
+  otherInput: {
+    backgroundColor: colors.cardGray,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: colors.dark,
+    fontFamily: fonts.medium,
+    letterSpacing: -0.3,
+  },
   cta: {
     backgroundColor: colors.accent, borderRadius: 22,
     paddingVertical: 16, alignItems: 'center', marginTop: 8,
