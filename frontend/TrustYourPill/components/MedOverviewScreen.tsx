@@ -27,6 +27,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 type Props = {
   visible: boolean;
   medicationName: string | null;
+  currentMedications: string[];
   onClose: () => void;
   onAdd: () => void;
 };
@@ -57,7 +58,7 @@ type CheckResponse = {
   }>;
 };
 
-export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: Props) {
+export function MedOverviewScreen({ visible, medicationName, currentMedications, onClose, onAdd }: Props) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [data, setData] = useState<CheckResponse | null>(null);
 
@@ -65,14 +66,20 @@ export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: P
   const contentOp = useRef(new Animated.Value(0)).current;
   const contentY = useRef(new Animated.Value(60)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+  const dotsLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     if (visible && medicationName) {
       setStatus('loading');
       setData(null);
       startProgress();
+      startDots();
       performCheck(medicationName);
     } else {
+      stopDots();
       contentOp.setValue(0);
       contentY.setValue(60);
       progressAnim.setValue(0);
@@ -81,20 +88,55 @@ export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: P
 
   const startProgress = () => {
     progressAnim.setValue(0);
+    // Crawl to 85% over 12s — will snap to 100% when data arrives
     Animated.timing(progressAnim, {
-      toValue: 1,
-      duration: 2000,
+      toValue: 0.85,
+      duration: 12000,
       useNativeDriver: false,
     }).start();
   };
 
+  const finishProgress = () => {
+    progressAnim.stopAnimation(() => {
+      Animated.timing(progressAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: false,
+      }).start();
+    });
+  };
+
+  const startDots = () => {
+    dot1.setValue(0);
+    dot2.setValue(0);
+    dot3.setValue(0);
+    const makeBounce = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: -8, duration: 280, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 280, useNativeDriver: true }),
+          Animated.delay(600),
+        ])
+      );
+    dotsLoopRef.current = Animated.parallel([
+      makeBounce(dot1, 0),
+      makeBounce(dot2, 140),
+      makeBounce(dot3, 280),
+    ]);
+    dotsLoopRef.current.start();
+  };
+
+  const stopDots = () => {
+    dotsLoopRef.current?.stop();
+  };
+
   const performCheck = async (name: string) => {
     try {
-      // Intentionally hardcoding current meds to trigger interaction logic 
-      // based on backend docs for demonstration context!
+      // Use the user's real medication library as current medications
       const body = {
         candidateMedication: name,
-        currentMedications: ["warfarin", "aspirin"] 
+        currentMedications,
       };
 
       const response = await fetch('http://127.0.0.1:3001/api/medications/check', {
@@ -105,14 +147,14 @@ export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: P
 
       const responseData = await response.json();
 
-      // Artificial delay for UI "wow" loading effect
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
       if (response.ok) {
         // Fallback default safe status if backend doesn't explicitly throw danger
         if (!responseData.summary?.status) {
            responseData.summary = { ...responseData.summary, status: 'safe' };
         }
+        finishProgress();
+        stopDots();
+        await new Promise(resolve => setTimeout(resolve, 420));
         setData(responseData);
         setStatus('success');
         Animated.parallel([
@@ -124,6 +166,7 @@ export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: P
       }
     } catch (e) {
        console.log("Check API failed", e);
+       stopDots();
        setStatus('error');
     }
   };
@@ -157,6 +200,11 @@ export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: P
             </View>
             <Text style={styles.loadingTitle}>Analyzing Routine...</Text>
             <Text style={styles.loadingSub}>Checking "{medicationName}" against your current medications.</Text>
+            <View style={styles.dotsRow}>
+              <Animated.View style={[styles.dot, { transform: [{ translateY: dot1 }] }]} />
+              <Animated.View style={[styles.dot, { transform: [{ translateY: dot2 }] }]} />
+              <Animated.View style={[styles.dot, { transform: [{ translateY: dot3 }] }]} />
+            </View>
             <View style={styles.progressBarWrapper}>
               <View style={styles.progressBarBg}>
                 <Animated.View style={[styles.progressBarFill, {
@@ -188,7 +236,7 @@ export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: P
                   <Text style={styles.sectionTitle}>Potential Side Effects</Text>
                   {data.sideEffectSignals.map((sig, idx) => (
                     <View key={idx} style={styles.infoCard}>
-                      <View style={[styles.dot, { backgroundColor: sig.severity === 'high' ? '#FF3A3A' : '#FFB800' }]} />
+                      <View style={[styles.infoDot, { backgroundColor: sig.severity === 'high' ? '#FF3A3A' : '#FFB800' }]} />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.infoCardTitle}>{sig.domain.replace('_', ' ').toUpperCase()}</Text>
                         <Text style={styles.infoCardText}>{sig.explanation}</Text>
@@ -353,7 +401,21 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 14,
   },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 24,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#006BFF',
+  },
+  infoDot: {
     width: 10,
     height: 10,
     borderRadius: 5,

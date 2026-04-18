@@ -166,7 +166,7 @@ function ActionCard({ label, icon: Icon, active = false, compact = false, solid 
   );
 }
 
-export function HomeScreen({ onOpenCheckup }: { onOpenCheckup: () => void }) {
+export function HomeScreen({ onOpenCheckup, onOpenEmergency, onOpenAppointments }: { onOpenCheckup: () => void; onOpenEmergency: () => void; onOpenAppointments: () => void }) {
   return (
     <ScrollView
       style={styles.content}
@@ -197,8 +197,8 @@ export function HomeScreen({ onOpenCheckup }: { onOpenCheckup: () => void }) {
 
         <View style={styles.actionsRow}>
           <ActionCard label="Daily Checkup" icon={HeartPulse} active onPress={onOpenCheckup} />
-          <ActionCard label="Appointments" icon={CalendarDays} />
-          <ActionCard label="" icon={Phone} active compact solid />
+          <ActionCard label="Appointments" icon={CalendarDays} onPress={onOpenAppointments} />
+          <ActionCard label="" icon={Phone} active compact solid onPress={onOpenEmergency} />
         </View>
       </View>
 
