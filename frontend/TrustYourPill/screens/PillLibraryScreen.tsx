@@ -1,37 +1,31 @@
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+﻿import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   BookOpen,
+  Check,
+  Coffee,
+  Moon,
   Pill as PillIcon,
   Plus,
+  Sun,
+  Sunset,
   Trash2,
 } from 'lucide-react-native';
 import { colors, fonts, gradients, type GradientKey } from '../theme';
 import type { UserMedication } from '../lib/api';
 
-const SLOT_LABELS: Record<string, string> = {
-  morning: 'Morning',
-  midday: 'Midday',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
-  bedtime: 'Bedtime',
-};
+// ─── slot definitions ────────────────────────────────────────────────────────
 
-const SLOT_TIMES: Record<string, string> = {
-  morning: '08:00',
-  midday: '12:30',
-  afternoon: '14:30',
-  evening: '18:30',
-  bedtime: '22:00',
-};
+const SLOTS = [
+  { id: 'morning',   label: 'Morning',   time: '08:00', sub: 'With breakfast', Icon: Coffee },
+  { id: 'midday',    label: 'Midday',    time: '12:30', sub: 'With lunch',     Icon: Sun },
+  { id: 'afternoon', label: 'Afternoon', time: '14:30', sub: 'Afternoon dose', Icon: Sun },
+  { id: 'evening',   label: 'Evening',   time: '18:30', sub: 'With dinner',    Icon: Sunset },
+  { id: 'bedtime',   label: 'Bedtime',   time: '22:00', sub: 'Before sleep',   Icon: Moon },
+] as const;
 
-// Cycle through card gradients for visual variety
+type SlotId = (typeof SLOTS)[number]['id'];
+
 const CARD_GRADIENTS: GradientKey[] = [
   'lightBlue',
   'warmPeach',
@@ -44,10 +38,23 @@ function gradientForIndex(index: number): GradientKey {
   return CARD_GRADIENTS[index % CARD_GRADIENTS.length];
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+function computeNextSlot(medications: UserMedication[]): SlotId | null {
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  let bestSlot: SlotId | null = null;
+  let bestDiff = Infinity;
+  for (const slot of SLOTS) {
+    const hasMeds = medications.some((m) => m.scheduleTimes.includes(slot.id));
+    if (!hasMeds) continue;
+    const [h, min] = slot.time.split(':').map(Number);
+    const slotMins = h * 60 + min;
+    const diff = slotMins >= nowMins ? slotMins - nowMins : slotMins + 1440 - nowMins;
+    if (diff < bestDiff) { bestDiff = diff; bestSlot = slot.id as SlotId; }
+  }
+  return bestSlot;
 }
+
+// ─── screen ──────────────────────────────────────────────────────────────────
 
 type Props = {
   medications: UserMedication[];
@@ -56,65 +63,147 @@ type Props = {
 };
 
 export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
+  const totalDoses = medications.reduce((s, m) => s + m.scheduleTimes.length, 0);
+  const nextSlot = computeNextSlot(medications);
+
+  const activeSlots = SLOTS.map((slot) => ({
+    slot,
+    meds: medications.filter((m) => m.scheduleTimes.includes(slot.id)),
+  })).filter((s) => s.meds.length > 0);
+
+  const unscheduled = medications.filter((m) => m.scheduleTimes.length === 0);
+
   return (
     <ScrollView
       style={styles.content}
       contentContainerStyle={styles.contentInner}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Header ── */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.kicker}>Your medications</Text>
-          <Text style={styles.title}>Library</Text>
+          <Text style={styles.kicker}>Today's Schedule</Text>
+          <Text style={styles.title}>Medicine</Text>
         </View>
         <Pressable onPress={onAdd} style={[styles.iconButton, styles.iconButtonAccent]}>
           <Plus size={20} strokeWidth={2.4} color={colors.white} />
         </Pressable>
       </View>
 
-      {/* ── Summary card ── */}
       <LinearGradient
-        colors={['#FFFFFF', '#F9FAFB']}
+        colors={gradients.adherence as unknown as readonly [string, string]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.adherenceCard, styles.summaryCard]}
+        style={styles.summaryCard}
       >
-        <Text style={styles.cardLabel}>Total medications</Text>
+        <Text style={styles.cardLabel}>Medications saved</Text>
         <Text style={styles.summaryValue}>
           {medications.length}
           <Text style={styles.summaryUnit}>
-            {medications.length === 1 ? ' medication saved' : ' medications saved'}
+            {medications.length === 1 ? ' medication' : ' medications'}
           </Text>
         </Text>
-        <Text style={styles.summaryHint}>Scan a label to add more</Text>
+        <Text style={styles.summaryHint}>
+          {totalDoses > 0
+            ? `${totalDoses} dose${totalDoses === 1 ? '' : 's'} scheduled today`
+            : 'Scan a label to set up your schedule'}
+        </Text>
       </LinearGradient>
 
       {medications.length === 0 ? (
         <EmptyState onAdd={onAdd} />
       ) : (
-        <View style={styles.list}>
-          {medications.map((med, index) => (
-            <MedCard
-              key={med.id}
-              med={med}
-              gradient={gradientForIndex(index)}
-              onDelete={() => onDelete(med.id)}
-            />
-          ))}
-        </View>
+        <>
+          {activeSlots.length > 0 && (
+            <View style={styles.timeline}>
+              {activeSlots.map(({ slot, meds }, i) => (
+                <TimelineSlot
+                  key={slot.id}
+                  slot={slot}
+                  meds={meds}
+                  isNext={slot.id === nextSlot}
+                  isLast={i === activeSlots.length - 1 && unscheduled.length === 0}
+                  onDelete={onDelete}
+                />
+              ))}
+            </View>
+          )}
+          {unscheduled.length > 0 && (
+            <View style={styles.unscheduledSection}>
+              <Text style={styles.unscheduledTitle}>No schedule set</Text>
+              <View style={styles.doseList}>
+                {unscheduled.map((med, i) => (
+                  <DoseCard
+                    key={med.id}
+                    med={med}
+                    gradient={gradientForIndex(i)}
+                    isNext={false}
+                    onDelete={() => onDelete(med.id)}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+        </>
       )}
     </ScrollView>
   );
 }
 
-function MedCard({
-  med,
-  gradient,
-  onDelete,
+// ─── timeline slot ────────────────────────────────────────────────────────────
+
+function TimelineSlot({
+  slot, meds, isNext, isLast, onDelete,
+}: {
+  slot: (typeof SLOTS)[number];
+  meds: UserMedication[];
+  isNext: boolean;
+  isLast: boolean;
+  onDelete: (id: string) => void;
+}) {
+  const { Icon } = slot;
+  return (
+    <View style={styles.slot}>
+      <View style={styles.rail}>
+        <View style={[styles.node, isNext && styles.nodeNext]}>
+          <Icon size={14} strokeWidth={2.3} color={isNext ? colors.white : colors.dark} />
+        </View>
+        {!isLast && <View style={styles.line} />}
+      </View>
+      <View style={styles.slotBody}>
+        <View style={styles.slotHeader}>
+          <View>
+            <Text style={styles.slotLabel}>
+              {slot.label}
+              {isNext ? <Text style={styles.nextBadge}>  · Next up</Text> : null}
+            </Text>
+            <Text style={styles.slotMeta}>{slot.sub}</Text>
+          </View>
+          <Text style={styles.slotTime}>{slot.time}</Text>
+        </View>
+        <View style={styles.doseList}>
+          {meds.map((med, i) => (
+            <DoseCard
+              key={med.id}
+              med={med}
+              gradient={gradientForIndex(i)}
+              isNext={isNext}
+              onDelete={() => onDelete(med.id)}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── dose card ────────────────────────────────────────────────────────────────
+
+function DoseCard({
+  med, gradient, isNext, onDelete,
 }: {
   med: UserMedication;
   gradient: GradientKey;
+  isNext: boolean;
   onDelete: () => void;
 }) {
   return (
@@ -122,44 +211,25 @@ function MedCard({
       colors={gradients[gradient] as unknown as readonly [string, string]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.medCard}
+      style={[styles.doseCard, isNext && styles.doseCardNext]}
     >
-      <View style={styles.medIconWrap}>
-        <PillIcon size={20} strokeWidth={2.2} color={colors.dark} />
+      <View style={styles.doseIconWrap}>
+        <PillIcon size={18} strokeWidth={2.2} color={colors.dark} />
       </View>
-
-      <View style={styles.medInfo}>
-        <Text style={styles.medName} numberOfLines={1}>
-          {med.displayName}
+      <View style={styles.doseInfo}>
+        <Text style={styles.doseName} numberOfLines={1}>{med.displayName}</Text>
+        <Text style={styles.doseMeta} numberOfLines={1}>
+          {med.dosageText ?? 'No dosage info'}
         </Text>
-
-        {med.dosageText ? (
-          <Text style={styles.medDosage} numberOfLines={1}>{med.dosageText}</Text>
-        ) : null}
-
-        {med.scheduleTimes.length > 0 ? (
-          <View style={styles.chipRow}>
-            {med.scheduleTimes.map((slotId) => (
-              <View key={slotId} style={styles.chip}>
-                <Text style={styles.chipText}>
-                  {SLOT_LABELS[slotId] ?? slotId} · {SLOT_TIMES[slotId] ?? ''}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.medMeta} numberOfLines={1}>
-            Added {formatDate(med.createdAt)}
-          </Text>
-        )}
       </View>
-
       <Pressable onPress={onDelete} style={styles.deleteBtn} hitSlop={12}>
-        <Trash2 size={16} strokeWidth={2} color="rgba(0,0,0,0.35)" />
+        <Trash2 size={14} strokeWidth={2} color="rgba(0,0,0,0.35)" />
       </Pressable>
     </LinearGradient>
   );
 }
+
+// ─── empty state ──────────────────────────────────────────────────────────────
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
@@ -179,202 +249,60 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+// ─── styles ───────────────────────────────────────────────────────────────────
+
+const RAIL_W = 40;
+const NODE = 28;
+
 const styles = StyleSheet.create({
-  content:      { flex: 1 },
-  contentInner: { paddingBottom: 130, paddingTop: 20, gap: 20 },
+  content: { flex: 1 },
+  contentInner: { paddingBottom: 130, paddingTop: 12, gap: 16 },
 
   header: {
-    paddingHorizontal: 28,
-    paddingTop: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
+    paddingHorizontal: 28, paddingTop: 10, marginBottom: 4,
   },
-  kicker: {
-    fontSize: 13,
-    color: 'rgba(0,0,0,0.5)',
-    fontFamily: fonts.medium,
-    letterSpacing: -0.25,
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 41,
-    lineHeight: 42,
-    letterSpacing: -1.23,
-    color: '#000',
-    fontFamily: fonts.semiBold,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.cardGray,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconButtonAccent: {
-    backgroundColor: colors.accent,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.4,
-    shadowRadius: 6.6,
-    shadowOffset: { width: 0, height: 0 },
-  },
+  kicker: { fontSize: 13, color: 'rgba(0,0,0,0.5)', fontFamily: fonts.medium, letterSpacing: -0.25, marginBottom: 4 },
+  title: { fontSize: 41, lineHeight: 42, letterSpacing: -1.23, color: '#000', fontFamily: fonts.semiBold },
+  iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.cardGray, alignItems: 'center', justifyContent: 'center' },
+  iconButtonAccent: { backgroundColor: colors.accent, shadowColor: colors.accent, shadowOpacity: 0.4, shadowRadius: 6.6, shadowOffset: { width: 0, height: 0 } },
 
-  adherenceCard: {
-    borderRadius: 22,
-    marginHorizontal: 28,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  summaryCard: {
-    padding: 20,
-    gap: 6,
-  },
-  cardLabel: {
-    fontSize: 13,
-    lineHeight: 16,
-    color: 'rgba(0,0,0,0.5)',
-    fontFamily: fonts.medium,
-    letterSpacing: -0.2,
-  },
-  summaryValue: {
-    fontSize: 32,
-    lineHeight: 36,
-    color: '#000',
-    fontFamily: fonts.semiBold,
-    letterSpacing: -1,
-  },
-  summaryUnit: {
-    fontSize: 16,
-    color: 'rgba(0,0,0,0.6)',
-    fontFamily: fonts.medium,
-    letterSpacing: -0.3,
-  },
-  summaryHint: {
-    fontSize: 13,
-    color: 'rgba(0,0,0,0.45)',
-    fontFamily: fonts.regular,
-    letterSpacing: -0.2,
-  },
+  summaryCard: { marginHorizontal: 28, borderRadius: 22, padding: 20, gap: 4 },
+  cardLabel: { fontSize: 13, lineHeight: 16, color: colors.metaStrong, fontFamily: fonts.medium, letterSpacing: -0.2 },
+  summaryValue: { fontSize: 32, lineHeight: 36, color: '#000', fontFamily: fonts.semiBold, letterSpacing: -1 },
+  summaryUnit: { fontSize: 16, color: 'rgba(0,0,0,0.6)', fontFamily: fonts.medium, letterSpacing: -0.3 },
+  summaryHint: { fontSize: 13, color: colors.metaStrong, fontFamily: fonts.regular, letterSpacing: -0.2 },
 
-  list: {
-    paddingHorizontal: 28,
-    gap: 12,
-  },
+  timeline: { paddingHorizontal: 28 },
+  slot: { flexDirection: 'row', gap: 12 },
+  rail: { width: RAIL_W, alignItems: 'center' },
+  node: { width: NODE, height: NODE, borderRadius: NODE / 2, backgroundColor: colors.cardGray, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  nodeNext: { backgroundColor: colors.accent, shadowColor: colors.accent, shadowOpacity: 0.5, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
+  line: { flex: 1, width: 2, backgroundColor: 'rgba(0,0,0,0.08)', marginTop: 4, marginBottom: 4, borderRadius: 1 },
 
-  medCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 22,
-  },
-  medIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  medInfo: { flex: 1 },
-  medName: {
-    fontSize: 16,
-    color: '#000',
-    fontFamily: fonts.semiBold,
-    letterSpacing: -0.4,
-  },
-  medDosage: {
-    fontSize: 13,
-    color: 'rgba(0,0,0,0.6)',
-    fontFamily: fonts.medium,
-    letterSpacing: -0.2,
-  },
-  medMeta: {
-    fontSize: 12,
-    color: 'rgba(0,0,0,0.5)',
-    fontFamily: fonts.medium,
-    letterSpacing: -0.2,
-    marginTop: 2,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 4,
-  },
-  chip: {
-    backgroundColor: 'rgba(255,255,255,0.65)',
-    borderRadius: 9999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  chipText: {
-    fontSize: 11,
-    color: 'rgba(0,0,0,0.6)',
-    fontFamily: fonts.medium,
-    letterSpacing: -0.15,
-  },
-  deleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  slotBody: { flex: 1, paddingBottom: 20 },
+  slotHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
+  slotLabel: { fontSize: 17, color: '#000', fontFamily: fonts.semiBold, letterSpacing: -0.45 },
+  nextBadge: { fontSize: 12, color: colors.accent, fontFamily: fonts.semiBold, letterSpacing: -0.2 },
+  slotMeta: { fontSize: 12, color: colors.meta, fontFamily: fonts.medium, letterSpacing: -0.2, marginTop: 2 },
+  slotTime: { fontSize: 15, color: colors.metaStrong, fontFamily: fonts.semiBold, letterSpacing: -0.3 },
 
-  emptyState: {
-    marginHorizontal: 28,
-    alignItems: 'center',
-    paddingTop: 40,
-    gap: 12,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(0, 107, 255, 0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontFamily: fonts.semiBold,
-    color: '#000',
-    letterSpacing: -0.5,
-  },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: fonts.regular,
-    color: 'rgba(0,0,0,0.5)',
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 16,
-  },
-  emptyBtn: {
-    marginTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.accent,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 9999,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  emptyBtnText: {
-    fontSize: 15,
-    fontFamily: fonts.semiBold,
-    color: colors.white,
-    letterSpacing: -0.3,
-  },
+  doseList: { gap: 8 },
+  doseCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18 },
+  doseCardNext: { shadowColor: colors.accent, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+  doseIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  doseInfo: { flex: 1 },
+  doseName: { fontSize: 15, color: '#000', fontFamily: fonts.semiBold, letterSpacing: -0.3 },
+  doseMeta: { fontSize: 12, color: colors.meta, fontFamily: fonts.medium, letterSpacing: -0.2, marginTop: 1 },
+  deleteBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center' },
+
+  unscheduledSection: { paddingHorizontal: 28, gap: 10 },
+  unscheduledTitle: { fontSize: 13, color: colors.meta, fontFamily: fonts.medium, letterSpacing: -0.2 },
+
+  emptyState: { marginHorizontal: 28, alignItems: 'center', paddingTop: 40, gap: 12 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(0, 107, 255, 0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyTitle: { fontSize: 20, fontFamily: fonts.semiBold, color: '#000', letterSpacing: -0.5 },
+  emptyText: { fontSize: 14, fontFamily: fonts.regular, color: 'rgba(0,0,0,0.5)', textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
+  emptyBtn: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.accent, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 9999, shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  emptyBtnText: { fontSize: 15, fontFamily: fonts.semiBold, color: colors.white, letterSpacing: -0.3 },
 });
