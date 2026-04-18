@@ -41,6 +41,11 @@ Rule:
 - [x] Add structured side-effect signal output to medication checks
 - [x] Add AI-generated supportive care ideas to medication checks
 - [x] Add repeatable smoke tests for the core endpoints
+- [x] Add dedicated `POST /api/medications/support` endpoint
+- [x] Test live medication support flow with real medications
+- [x] Merge medication scan feature from `backend-scan-prep` into the real backend
+- [x] Add `POST /api/medications/scan`
+- [x] Test live medication scan flow with a real image payload
 
 ### Next Up
 

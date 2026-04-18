@@ -8,7 +8,8 @@ The project currently contains:
 
 - a Fastify entrypoint
 - a componentized folder layout
-- implemented search, profile, health, user medication, and medication check endpoints
+- implemented search, profile, health, user medication, medication check, medication support, and medication scan endpoints
+- implemented a dedicated medication support endpoint
 - openFDA medication profile retrieval with DailyMed fallback
 - Supabase-backed medication evidence caching for profile lookups
 - Supabase-backed check result persistence
@@ -40,6 +41,7 @@ The backend currently expects:
 - `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_PUBLISHABLE_KEY`
 - optional: `OPENAI_API_KEY`
 - optional: `OPENAI_MODEL`
+- optional: `OPENAI_VISION_MODEL`
 - optional: `OPENFDA_API_KEY`
 
 Without an `OPENAI_API_KEY`, the medication check endpoint still works and returns a deterministic grounded `aiSummary`.
@@ -70,6 +72,20 @@ The smoke flow exercises:
 - `GET /api/users/:id/medications`
 - `DELETE /api/users/:id/medications/:medId`
 - `POST /api/medications/check`
+- `POST /api/medications/support`
+
+## Scan endpoint
+
+The backend now also supports:
+
+- `POST /api/medications/scan`
+
+This endpoint accepts:
+
+- `imageBase64DataUrl`
+- or `imageUrl`
+
+It uses OpenAI vision to extract visible medication packaging text, then maps that text to RxNav medication candidates for frontend confirmation.
 
 ## Documentation rule
 

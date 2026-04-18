@@ -11,6 +11,7 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-5-mini"),
+  OPENAI_VISION_MODEL: z.string().optional(),
   OPENFDA_API_KEY: z.string().optional()
 });
 
@@ -22,6 +23,7 @@ export const env = {
   SUPABASE_PUBLISHABLE_KEY: emptyToUndefined(parsedEnv.SUPABASE_PUBLISHABLE_KEY),
   SUPABASE_SERVICE_ROLE_KEY: emptyToUndefined(parsedEnv.SUPABASE_SERVICE_ROLE_KEY),
   OPENAI_API_KEY: emptyToUndefined(parsedEnv.OPENAI_API_KEY),
+  OPENAI_VISION_MODEL: emptyToUndefined(parsedEnv.OPENAI_VISION_MODEL),
   OPENFDA_API_KEY: emptyToUndefined(parsedEnv.OPENFDA_API_KEY)
 };
 

@@ -5,6 +5,8 @@ export const medicationCheckRequestSchema = z.object({
   currentMedications: z.array(z.string().trim().min(1)).default([])
 });
 
+export const medicationSupportRequestSchema = medicationCheckRequestSchema;
+
 export const medicationCheckSummarySchema = z.object({
   status: z.enum(["avoid_until_reviewed", "review_before_use", "insufficient_evidence"]),
   headline: z.string(),
@@ -73,13 +75,35 @@ export const medicationCheckResponseSchema = z.object({
   disclaimer: z.string()
 });
 
+export const medicationSupportResponseSchema = z.object({
+  candidateMedication: z.object({
+    input: z.string(),
+    normalizedName: z.string(),
+    rxcui: z.string()
+  }),
+  currentMedications: z.array(
+    z.object({
+      input: z.string(),
+      normalizedName: z.string(),
+      rxcui: z.string()
+    })
+  ),
+  sideEffectSignals: z.array(medicationCheckSideEffectSignalSchema),
+  supportiveCareIdeas: z.array(medicationCheckSupportiveCareIdeaSchema),
+  aiSummary: medicationCheckAiSummarySchema,
+  interactionReviewNote: z.string(),
+  disclaimer: z.string()
+});
+
 export type MedicationCheckRequest = z.infer<typeof medicationCheckRequestSchema>;
+export type MedicationSupportRequest = z.infer<typeof medicationSupportRequestSchema>;
 export type MedicationCheckSummary = z.infer<typeof medicationCheckSummarySchema>;
 export type MedicationCheckAiSummary = z.infer<typeof medicationCheckAiSummarySchema>;
 export type MedicationCheckSideEffectSignal = z.infer<typeof medicationCheckSideEffectSignalSchema>;
 export type MedicationCheckSupportiveCareIdea = z.infer<typeof medicationCheckSupportiveCareIdeaSchema>;
 export type MedicationCheckEvidenceItem = z.infer<typeof medicationCheckEvidenceItemSchema>;
 export type MedicationCheckResponse = z.infer<typeof medicationCheckResponseSchema>;
+export type MedicationSupportResponse = z.infer<typeof medicationSupportResponseSchema>;
 export type MedicationCheckAiInsights = {
   aiSummary: MedicationCheckAiSummary;
   sideEffectSignals: MedicationCheckSideEffectSignal[];
