@@ -150,7 +150,7 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
 
       // Timeout for visual effect and backend wait
       const scanStart = Date.now();
-      const delay = 3000; 
+      const delay = 3000;
 
       const response = await fetch('http://127.0.0.1:3001/api/medications/scan', {
         method: 'POST',
@@ -225,7 +225,7 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <BlurView intensity={80} tint="dark" style={styles.absoluteFill}>
-        
+
         {/* Navigation & Close */}
         <View style={styles.header}>
           <Text style={styles.title}>Scan Pill</Text>
@@ -238,7 +238,7 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
         {(status === 'scanning' || status === 'success' || status === 'error') && imageUri ? (
           <View style={styles.imageContainer}>
             <Image source={{ uri: imageUri }} style={styles.capturedImage} />
-            
+
             {status === 'scanning' && (
               <View style={styles.scanningOverlay}>
                 <Animated.View style={[styles.laser, { transform: [{ translateY: laserY }] }]}>
@@ -258,7 +258,7 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
             {/* Success Layout */}
             {(status === 'success' || status === 'error') && (
               <Animated.View style={[
-                styles.resultCard, 
+                styles.resultCard,
                 { opacity: cardOp, transform: [{ translateY: cardY }] }
               ]}>
                 <View style={styles.resultInner}>
@@ -318,21 +318,21 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
             </View>
 
             <View style={styles.cardsRow}>
-               <Pressable style={styles.choiceCard} onPress={openCamera}>
-                 <LinearGradient colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)']} style={styles.choiceCardGradients}>
-                   <Camera size={32} color="#FFFFFF" strokeWidth={1.5} style={{ marginBottom: 16 }} />
-                   <Text style={styles.choiceTitle}>Take a Picture</Text>
-                   <Text style={styles.choiceSub}>Use your camera</Text>
-                 </LinearGradient>
-               </Pressable>
+              <Pressable style={styles.choiceCard} onPress={openCamera}>
+                <LinearGradient colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)']} style={styles.choiceCardGradients}>
+                  <Camera size={32} color="#FFFFFF" strokeWidth={1.5} style={{ marginBottom: 16 }} />
+                  <Text style={styles.choiceTitle}>Take a Picture</Text>
+                  <Text style={styles.choiceSub}>Use your camera</Text>
+                </LinearGradient>
+              </Pressable>
 
-               <Pressable style={styles.choiceCard} onPress={openGallery}>
-                 <LinearGradient colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)']} style={styles.choiceCardGradients}>
-                   <ImageIcon size={32} color="#FFFFFF" strokeWidth={1.5} style={{ marginBottom: 16 }} />
-                   <Text style={styles.choiceTitle}>Upload File</Text>
-                   <Text style={styles.choiceSub}>Choose from gallery</Text>
-                 </LinearGradient>
-               </Pressable>
+              <Pressable style={styles.choiceCard} onPress={openGallery}>
+                <LinearGradient colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)']} style={styles.choiceCardGradients}>
+                  <ImageIcon size={32} color="#FFFFFF" strokeWidth={1.5} style={{ marginBottom: 16 }} />
+                  <Text style={styles.choiceTitle}>Upload File</Text>
+                  <Text style={styles.choiceSub}>Choose from gallery</Text>
+                </LinearGradient>
+              </Pressable>
             </View>
           </Animated.View>
         )}
