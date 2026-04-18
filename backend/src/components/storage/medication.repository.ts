@@ -13,6 +13,8 @@ export type UserMedicationRecord = {
   rxaui: string | null;
   source: string;
   searchScore: number | null;
+  scheduleTimes: string[];
+  dosageText: string | null;
   createdAt: string;
 };
 
@@ -25,6 +27,8 @@ export type CreateUserMedicationInput = {
   rxaui?: string | null;
   source: string;
   searchScore?: number | null;
+  scheduleTimes?: string[];
+  dosageText?: string | null;
 };
 
 type UserMedicationRow = {
@@ -37,6 +41,8 @@ type UserMedicationRow = {
   rxaui: string | null;
   source: string;
   search_score: number | null;
+  schedule_times: string[];
+  dosage_text: string | null;
   created_at: string;
 };
 
@@ -79,7 +85,9 @@ export class MedicationRepository {
       rxcui: input.rxcui,
       rxaui: input.rxaui ?? null,
       source: input.source,
-      search_score: input.searchScore ?? null
+      search_score: input.searchScore ?? null,
+      schedule_times: input.scheduleTimes ?? [],
+      dosage_text: input.dosageText ?? null
     };
 
     const { data, error } = await client
@@ -143,6 +151,8 @@ function mapUserMedicationRow(row: UserMedicationRow): UserMedicationRecord {
     rxaui: row.rxaui,
     source: row.source,
     searchScore: row.search_score,
+    scheduleTimes: row.schedule_times ?? [],
+    dosageText: row.dosage_text ?? null,
     createdAt: row.created_at
   };
 }

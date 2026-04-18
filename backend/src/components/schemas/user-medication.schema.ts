@@ -16,7 +16,9 @@ export const createUserMedicationBodySchema = z.object({
   rxcui: z.string().trim().min(1),
   rxaui: z.string().trim().min(1).nullable().optional(),
   source: z.string().trim().min(1),
-  searchScore: z.number().nullable().optional()
+  searchScore: z.number().nullable().optional(),
+  scheduleTimes: z.array(z.string()).optional().default([]),
+  dosageText: z.string().trim().optional().nullable()
 });
 
 export type CreateUserMedicationBody = z.infer<typeof createUserMedicationBodySchema>;

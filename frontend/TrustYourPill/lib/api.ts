@@ -12,6 +12,8 @@ export type UserMedication = {
   rxaui?: string;
   source: string;
   searchScore?: number;
+  scheduleTimes: string[];
+  dosageText?: string | null;
   createdAt: string;
 };
 
@@ -40,6 +42,8 @@ export async function addUserMedication(input: {
   rxaui?: string;
   source: string;
   searchScore?: number;
+  scheduleTimes?: string[];
+  dosageText?: string | null;
 }): Promise<UserMedication> {
   const res = await fetch(`${API_BASE}/api/users/${DEMO_USER_ID}/medications`, {
     method: 'POST',

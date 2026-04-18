@@ -19,13 +19,46 @@ import {
   HeartPulse,
   LucideIcon,
   Phone,
+  Pill as PillIcon,
   Target,
 } from 'lucide-react-native';
-import { colors, fonts, gradients } from '../theme';
+import { colors, fonts, gradients, pillGradientCycle, type GradientKey } from '../theme';
+import type { UserMedication } from '../lib/api';
 
 const avatarUri = 'https://www.figma.com/api/mcp/asset/31e6ebca-e0bc-4a62-af12-46698246312f';
-const paracetamolUri = 'https://www.figma.com/api/mcp/asset/97efda10-cf4f-423e-85cd-3c2d2addf400';
-const ibuprofenUri = 'https://www.figma.com/api/mcp/asset/888b5795-7ac3-4d88-bbb5-b9480d6cfcc0';
+
+type NextDoseInfo = { time: string; suffix: 'AM' | 'PM'; medName: string };
+
+const SLOT_TIMES: Record<string, string> = {
+  morning:   '08:00',
+  midday:    '12:30',
+  afternoon: '14:30',
+  evening:   '18:30',
+  bedtime:   '22:00',
+};
+
+function computeNextDose(medications: UserMedication[]): NextDoseInfo | null {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  let earliest: { minutes: number; medName: string } | null = null;
+  for (const med of medications) {
+    for (const slotId of med.scheduleTimes) {
+      const timeStr = SLOT_TIMES[slotId];
+      if (!timeStr) continue;
+      const [hStr, mStr] = timeStr.split(':');
+      const mins = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+      if (mins > currentMinutes && (!earliest || mins < earliest.minutes)) {
+        earliest = { minutes: mins, medName: med.displayName.split(' ')[0] };
+      }
+    }
+  }
+  if (!earliest) return null;
+  const h = Math.floor(earliest.minutes / 60);
+  const m = earliest.minutes % 60;
+  const suffix: 'AM' | 'PM' = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return { time: `${h12}:${m.toString().padStart(2, '0')}`, suffix, medName: earliest.medName };
+}
 
 /** Animated half-ring from Simon (2eff546469d75fa9f552769b9459728cc16d6486). */
 function AdherenceHalfRing({
@@ -166,7 +199,65 @@ function ActionCard({ label, icon: Icon, active = false, compact = false, solid 
   );
 }
 
-export function HomeScreen({ onOpenCheckup, onOpenEmergency, onOpenAppointments }: { onOpenCheckup: () => void; onOpenEmergency: () => void; onOpenAppointments: () => void }) {
+type PillCardProps = { med: UserMedication | null; gradientKey: GradientKey };
+function PillCard({ med, gradientKey }: PillCardProps) {
+  const gradColors = gradients[gradientKey] as unknown as readonly [string, string];
+  if (!med) {
+    return (
+      <LinearGradient
+        colors={['#F5F5F5', '#EEEEEE']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.gridCard, styles.pillCard]}
+      >
+        <View style={styles.emptyPillCard}>
+          <PillIcon size={36} strokeWidth={1.4} color="rgba(0,0,0,0.15)" />
+          <Text style={styles.emptyPillText}>Scan a pill{`\n`}to add it</Text>
+        </View>
+      </LinearGradient>
+    );
+  }
+  const nameParts = med.displayName.split(' ');
+  const pillName = nameParts[0];
+  const dose = med.dosageText || (med.scheduleTimes.length > 0 ? `${med.scheduleTimes.length}×/day` : '—');
+  const meta = `${med.scheduleTimes.length} dose${med.scheduleTimes.length !== 1 ? 's' : ''}/day`;
+  return (
+    <LinearGradient
+      colors={gradColors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.gridCard, styles.pillCard]}
+    >
+      <Text style={styles.cardLabel}>{pillName}</Text>
+      <View style={styles.pillIconWrap}>
+        <PillIcon size={52} strokeWidth={1.2} color="rgba(0,0,0,0.18)" />
+      </View>
+      <View>
+        <Text style={styles.pillDose}>{dose}</Text>
+        <Text style={styles.cardMeta}>{meta}</Text>
+      </View>
+    </LinearGradient>
+  );
+}
+
+export function HomeScreen({
+  medications,
+  onOpenCheckup,
+  onOpenEmergency,
+  onOpenAppointments,
+}: {
+  medications: UserMedication[];
+  onOpenCheckup: () => void;
+  onOpenEmergency: () => void;
+  onOpenAppointments: () => void;
+}) {
+  const totalDailyDoses = medications.reduce((s, m) => s + m.scheduleTimes.length, 0);
+  const pillsTaken = 0; // no check-in tracking yet
+  const adherencePercent = totalDailyDoses > 0 ? Math.round((pillsTaken / totalDailyDoses) * 100) : 0;
+  const nextDose = computeNextDose(medications);
+  const firstPill = medications[0] ?? null;
+  const secondPill = medications[1] ?? null;
+
   return (
     <ScrollView
       style={styles.content}
@@ -226,50 +317,21 @@ export function HomeScreen({ onOpenCheckup, onOpenEmergency, onOpenAppointments 
 
             <View style={styles.adherenceMetricBlock}>
               <Text style={styles.adherenceValueLight}>
-                2<Text style={styles.adherenceUnitLight}>/4</Text>
+                {pillsTaken}<Text style={styles.adherenceUnitLight}>/{totalDailyDoses}</Text>
               </Text>
               <Text style={styles.adherenceSubLight}>pills taken</Text>
             </View>
           </View>
 
           <View style={styles.adherenceRingWrap}>
-            <AdherenceHalfRing percent={50} size={132} textColor="#000000" />
+            <AdherenceHalfRing percent={adherencePercent} size={132} textColor="#000000" />
           </View>
         </View>
       </LinearGradient>
 
       <View style={styles.row}>
-        <LinearGradient
-          colors={gradients.paracetamol as unknown as readonly [string, string]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.gridCard, styles.pillCard]}
-        >
-          <Text style={styles.cardLabel}>Paracetamol</Text>
-          <View style={styles.pillImageWrap}>
-            <Image source={{ uri: paracetamolUri }} style={styles.pillImage} resizeMode="contain" />
-          </View>
-          <View>
-            <Text style={styles.pillDose}>500mg</Text>
-            <Text style={styles.cardMeta}>Pain relief</Text>
-          </View>
-        </LinearGradient>
-
-        <LinearGradient
-          colors={gradients.ibuprofen as unknown as readonly [string, string]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.gridCard, styles.pillCard]}
-        >
-          <Text style={styles.cardLabel}>Ibuprofen</Text>
-          <View style={styles.pillImageWrap}>
-            <Image source={{ uri: ibuprofenUri }} style={styles.pillImage} resizeMode="contain" />
-          </View>
-          <View>
-            <Text style={styles.pillDose}>200mg</Text>
-            <Text style={styles.cardMeta}>Anti-inflam.</Text>
-          </View>
-        </LinearGradient>
+        <PillCard med={firstPill} gradientKey={pillGradientCycle[0]} />
+        <PillCard med={secondPill} gradientKey={pillGradientCycle[1]} />
       </View>
 
       <View style={styles.row}>
@@ -300,9 +362,10 @@ export function HomeScreen({ onOpenCheckup, onOpenEmergency, onOpenAppointments 
             <Text style={styles.cardLabel}>Next dose</Text>
           </View>
           <Text style={styles.statValue}>
-            2:30<Text style={styles.statUnit}> PM</Text>
+            {nextDose ? nextDose.time : '—'}
+            {nextDose ? <Text style={styles.statUnit}> {nextDose.suffix}</Text> : null}
           </Text>
-          <Text style={styles.cardMeta}>Paracetamol</Text>
+          <Text style={styles.cardMeta}>{nextDose ? nextDose.medName : 'None scheduled'}</Text>
         </LinearGradient>
       </View>
     </ScrollView>
@@ -482,8 +545,12 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12, paddingHorizontal: 28 },
   gridCard: { flex: 1, borderRadius: 22, padding: 16 },
   pillCard: { height: 210, justifyContent: 'space-between' },
-  pillImageWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
-  pillImage: { width: '90%', height: 90 },
+  pillIconWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
+  emptyPillCard: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  emptyPillText: {
+    fontSize: 12, color: 'rgba(0,0,0,0.3)', fontFamily: fonts.medium,
+    letterSpacing: -0.2, textAlign: 'center', lineHeight: 17,
+  },
   pillDose: {
     fontSize: 22, lineHeight: 24, color: '#000',
     fontFamily: fonts.semiBold, letterSpacing: -0.5,

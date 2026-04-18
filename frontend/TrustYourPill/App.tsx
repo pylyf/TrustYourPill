@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { Animated, SafeAreaView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
@@ -25,6 +25,30 @@ import {
   type MedicationCandidate,
 } from './lib/api';
 
+/** Wraps a screen so it fades + slides up each time it becomes visible */
+function AnimatedScreen({ visible, children }: { visible: boolean; children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    if (visible) {
+      opacity.setValue(0);
+      translateY.setValue(18);
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, damping: 22, stiffness: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+  return (
+    <Animated.View style={[styles.animatedScreen, { opacity, transform: [{ translateY }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     Geist_400Regular,
@@ -36,9 +60,31 @@ export default function App() {
   const [overlay, setOverlay] = useState<null | 'checkup' | 'scan' | 'medOverview'>(null);
   const [scannedName, setScannedName] = useState<string | null>(null);
   const [scannedCandidate, setScannedCandidate] = useState<MedicationCandidate | null>(null);
+  const [scannedDosage, setScannedDosage] = useState<string | null>(null);
   const [userMedications, setUserMedications] = useState<UserMedication[]>([]);
   const [isEmergencyDrawerVisible, setIsEmergencyDrawerVisible] = useState(false);
   const [isAppointmentsDrawerVisible, setIsAppointmentsDrawerVisible] = useState(false);
+
+  // Animated values for the checkup overlay
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const overlayTranslateY = useRef(new Animated.Value(30)).current;
+  const [overlayMounted, setOverlayMounted] = useState(false);
+
+  useEffect(() => {
+    if (overlay === 'checkup') {
+      setOverlayMounted(true);
+      overlayOpacity.setValue(0);
+      overlayTranslateY.setValue(30);
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.spring(overlayTranslateY, { toValue: 0, damping: 22, stiffness: 200, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+        setOverlayMounted(false);
+      });
+    }
+  }, [overlay]);
 
   const loadMedications = useCallback(async () => {
     try {
@@ -65,9 +111,10 @@ export default function App() {
   const closeOverlay = useCallback(() => setOverlay(null), []);
   const openScan = useCallback(() => setOverlay('scan'), []);
 
-  const handleScanConfirm = useCallback(async (name: string) => {
+  const handleScanConfirm = useCallback(async (name: string, dosageText?: string | null) => {
     setScannedName(name);
     setScannedCandidate(null);
+    setScannedDosage(dosageText ?? null);
     setOverlay('medOverview');
     // Search in background to resolve rxcui for saving
     try {
@@ -80,7 +127,7 @@ export default function App() {
     }
   }, []);
 
-  const handleAddMedication = useCallback(async () => {
+  const handleAddMedication = useCallback(async (scheduleTimes: string[]) => {
     if (!scannedName) return;
     try {
       const candidate = scannedCandidate;
@@ -93,6 +140,8 @@ export default function App() {
           rxaui: candidate.rxaui,
           source: candidate.source,
           searchScore: candidate.confidenceScore,
+          scheduleTimes,
+          dosageText: scannedDosage,
         });
       } else {
         // Fallback: save with name only (rxcui = name slug, unique enough for demo)
@@ -102,6 +151,8 @@ export default function App() {
           normalizedName: scannedName.toLowerCase(),
           rxcui: scannedName.toLowerCase().replace(/\s+/g, '-'),
           source: 'scan',
+          scheduleTimes,
+          dosageText: scannedDosage,
         });
       }
       await loadMedications();
@@ -109,7 +160,7 @@ export default function App() {
       // silently fail for hackathon
     }
     setOverlay(null);
-  }, [scannedName, scannedCandidate, loadMedications]);
+  }, [scannedName, scannedCandidate, scannedDosage, loadMedications]);
 
   const handleDeleteMedication = useCallback(async (medId: string) => {
     try {
@@ -128,21 +179,37 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.screen}>
-        {tab === 'home'     && <HomeScreen onOpenCheckup={openCheckup} onOpenEmergency={() => setIsEmergencyDrawerVisible(true)} onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)} />}
-        {tab === 'symptoms' && <SymptomsScreen />}
-        {tab === 'library'  && (
+        <AnimatedScreen visible={tab === 'home'}>
+          <HomeScreen
+            medications={userMedications}
+            onOpenCheckup={openCheckup}
+            onOpenEmergency={() => setIsEmergencyDrawerVisible(true)}
+            onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)}
+          />
+        </AnimatedScreen>
+
+        <AnimatedScreen visible={tab === 'symptoms'}>
+          <SymptomsScreen />
+        </AnimatedScreen>
+
+        <AnimatedScreen visible={tab === 'library'}>
           <PillLibraryScreen
             medications={userMedications}
             onAdd={openScan}
             onDelete={handleDeleteMedication}
           />
-        )}
+        </AnimatedScreen>
 
-        {overlay === 'checkup' ? (
-          <View style={styles.overlay}>
+        {overlayMounted && (
+          <Animated.View
+            style={[
+              styles.overlay,
+              { opacity: overlayOpacity, transform: [{ translateY: overlayTranslateY }] },
+            ]}
+          >
             <CheckupScreen onClose={closeOverlay} />
-          </View>
-        ) : null}
+          </Animated.View>
+        )}
 
         <BottomNav activeTab={tab} onAction={onAction} />
       </View>
@@ -167,6 +234,7 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
+  animatedScreen: { ...StyleSheet.absoluteFillObject },
   overlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,

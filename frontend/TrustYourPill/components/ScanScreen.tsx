@@ -30,7 +30,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (name: string) => void;
+  onConfirm: (name: string, dosageText?: string | null) => void;
 };
 
 type ScanResult = {
@@ -219,7 +219,8 @@ export function ScanScreen({ visible, onClose, onConfirm }: Props) {
 
   const handleConfirm = () => {
     const medName = result?.extraction?.medicationName || result?.match?.bestCandidate?.normalizedName || 'Unknown Medication';
-    onConfirm(medName);
+    const dosage = result?.extraction?.dosageText ?? null;
+    onConfirm(medName, dosage);
   };
 
   return (

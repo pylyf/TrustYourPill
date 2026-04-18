@@ -1,15 +1,25 @@
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+﻿import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  BookOpen,
-  Pill as PillIcon,
-  Plus,
-  Trash2,
-} from 'lucide-react-native';
+import { BookOpen, Pill as PillIcon, Plus, Trash2 } from 'lucide-react-native';
 import { colors, fonts, gradients, type GradientKey } from '../theme';
 import type { UserMedication } from '../lib/api';
 
-// Cycle through card gradients for visual variety
+const SLOT_LABELS: Record<string, string> = {
+  morning:   'Morning',
+  midday:    'Midday',
+  afternoon: 'Afternoon',
+  evening:   'Evening',
+  bedtime:   'Bedtime',
+};
+
+const SLOT_TIMES: Record<string, string> = {
+  morning:   '08:00',
+  midday:    '12:30',
+  afternoon: '14:30',
+  evening:   '18:30',
+  bedtime:   '22:00',
+};
+
 const CARD_GRADIENTS: GradientKey[] = [
   'lightBlue',
   'warmPeach',
@@ -20,11 +30,6 @@ const CARD_GRADIENTS: GradientKey[] = [
 
 function gradientForIndex(index: number): GradientKey {
   return CARD_GRADIENTS[index % CARD_GRADIENTS.length];
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 type Props = {
@@ -40,6 +45,7 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
       contentContainerStyle={styles.contentInner}
       showsVerticalScrollIndicator={false}
     >
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.kicker}>Your medications</Text>
@@ -50,11 +56,12 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
         </Pressable>
       </View>
 
+      {/* Summary card */}
       <LinearGradient
-        colors={gradients.adherence as unknown as readonly [string, string]}
+        colors={['#FFFFFF', '#F9FAFB']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.summaryCard}
+        style={[styles.adherenceCard, styles.summaryCard]}
       >
         <Text style={styles.cardLabel}>Total medications</Text>
         <Text style={styles.summaryValue}>
@@ -93,6 +100,8 @@ function MedCard({
   gradient: GradientKey;
   onDelete: () => void;
 }) {
+  const hasSchedule = med.scheduleTimes.length > 0;
+
   return (
     <LinearGradient
       colors={gradients[gradient] as unknown as readonly [string, string]}
@@ -105,12 +114,25 @@ function MedCard({
       </View>
 
       <View style={styles.medInfo}>
-        <Text style={styles.medName} numberOfLines={1}>
-          {med.displayName}
-        </Text>
-        <Text style={styles.medMeta} numberOfLines={1}>
-          Added {formatDate(med.createdAt)}
-        </Text>
+        <Text style={styles.medName} numberOfLines={1}>{med.displayName}</Text>
+
+        {med.dosageText ? (
+          <Text style={styles.medDosage} numberOfLines={1}>{med.dosageText}</Text>
+        ) : null}
+
+        {hasSchedule ? (
+          <View style={styles.chipRow}>
+            {med.scheduleTimes.map((slotId) => (
+              <View key={slotId} style={styles.chip}>
+                <Text style={styles.chipText}>
+                  {SLOT_LABELS[slotId] ?? slotId} Â· {SLOT_TIMES[slotId] ?? ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.medMeta}>No schedule set</Text>
+        )}
       </View>
 
       <Pressable onPress={onDelete} style={styles.deleteBtn} hitSlop={12}>
@@ -139,16 +161,15 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  content: { flex: 1 },
-  contentInner: { paddingBottom: 130, paddingTop: 12, gap: 16 },
+  content:      { flex: 1 },
+  contentInner: { paddingBottom: 130, paddingTop: 20, gap: 20 },
 
   header: {
+    paddingHorizontal: 28,
+    paddingTop: 14,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: 28,
-    paddingTop: 10,
-    marginBottom: 4,
   },
   kicker: {
     fontSize: 13,
@@ -180,16 +201,24 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
 
-  summaryCard: {
-    marginHorizontal: 28,
+  adherenceCard: {
     borderRadius: 22,
+    marginHorizontal: 28,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  summaryCard: {
     padding: 20,
-    gap: 6,
+    gap: 4,
   },
   cardLabel: {
     fontSize: 13,
     lineHeight: 16,
-    color: colors.metaStrong,
+    color: 'rgba(0,0,0,0.5)',
     fontFamily: fonts.medium,
     letterSpacing: -0.2,
   },
@@ -220,7 +249,7 @@ const styles = StyleSheet.create({
 
   medCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
     padding: 16,
     borderRadius: 22,
@@ -232,20 +261,44 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.7)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
-  medInfo: { flex: 1 },
+  medInfo: { flex: 1, gap: 4 },
   medName: {
     fontSize: 16,
     color: '#000',
     fontFamily: fonts.semiBold,
     letterSpacing: -0.4,
   },
-  medMeta: {
-    fontSize: 12,
-    color: colors.meta,
+  medDosage: {
+    fontSize: 13,
+    color: 'rgba(0,0,0,0.6)',
     fontFamily: fonts.medium,
     letterSpacing: -0.2,
+  },
+  medMeta: {
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.4)',
+    fontFamily: fonts.medium,
+    letterSpacing: -0.2,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
     marginTop: 2,
+  },
+  chip: {
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    borderRadius: 9999,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  chipText: {
+    fontSize: 11,
+    color: 'rgba(0,0,0,0.6)',
+    fontFamily: fonts.medium,
+    letterSpacing: -0.15,
   },
   deleteBtn: {
     width: 36,

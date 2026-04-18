@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ShieldAlert, ShieldCheck, Shield, ChevronDown, CheckCircle, Plus, Info, Activity, X } from 'lucide-react-native';
+import { ShieldAlert, ShieldCheck, Plus, Info, Activity, X, Check, Clock } from 'lucide-react-native';
 import {
   Geist_400Regular,
   Geist_500Medium,
@@ -29,8 +29,16 @@ type Props = {
   medicationName: string | null;
   currentMedications: string[];
   onClose: () => void;
-  onAdd: () => void;
+  onAdd: (scheduleTimes: string[]) => void;
 };
+
+const TIME_SLOTS = [
+  { id: 'morning',   label: 'Morning',   time: '08:00', sub: 'With breakfast' },
+  { id: 'midday',    label: 'Midday',    time: '12:30', sub: 'With lunch' },
+  { id: 'afternoon', label: 'Afternoon', time: '14:30', sub: 'Afternoon dose' },
+  { id: 'evening',   label: 'Evening',   time: '18:30', sub: 'With dinner' },
+  { id: 'bedtime',   label: 'Bedtime',   time: '22:00', sub: 'Before sleep' },
+];
 
 // Types from API spec
 type CheckResponse = {
@@ -59,8 +67,9 @@ type CheckResponse = {
 };
 
 export function MedOverviewScreen({ visible, medicationName, currentMedications, onClose, onAdd }: Props) {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'schedule' | 'error'>('idle');
   const [data, setData] = useState<CheckResponse | null>(null);
+  const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
 
   // Animations
   const contentOp = useRef(new Animated.Value(0)).current;
@@ -83,6 +92,7 @@ export function MedOverviewScreen({ visible, medicationName, currentMedications,
       contentOp.setValue(0);
       contentY.setValue(60);
       progressAnim.setValue(0);
+      setSelectedSlots(new Set());
     }
   }, [visible, medicationName]);
 
@@ -270,9 +280,64 @@ export function MedOverviewScreen({ visible, medicationName, currentMedications,
                 <X size={28} color="#000" />
               </Pressable>
               
-              <Pressable style={styles.primaryBtn} onPress={onAdd}>
+              <Pressable style={styles.primaryBtn} onPress={() => setStatus('schedule')}>
                 <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
                 <Text style={styles.primaryBtnText}>Add to Library</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Schedule Picker */}
+        {status === 'schedule' && (
+          <Animated.View style={[styles.container, { opacity: contentOp, transform: [{ translateY: contentY }] }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollInner}>
+              <View style={styles.scheduleHeader}>
+                <Clock size={28} color="#006BFF" strokeWidth={2} />
+                <Text style={styles.scheduleTitle}>When do you take it?</Text>
+                <Text style={styles.scheduleSub}>Select all times that apply. You can change this later.</Text>
+              </View>
+
+              <View style={styles.slotList}>
+                {TIME_SLOTS.map((slot) => {
+                  const selected = selectedSlots.has(slot.id);
+                  return (
+                    <Pressable
+                      key={slot.id}
+                      style={[styles.slotRow, selected && styles.slotRowSelected]}
+                      onPress={() => {
+                        setSelectedSlots((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(slot.id)) next.delete(slot.id);
+                          else next.add(slot.id);
+                          return next;
+                        });
+                      }}
+                    >
+                      <View style={styles.slotTexts}>
+                        <Text style={[styles.slotLabel, selected && styles.slotLabelSelected]}>{slot.label}</Text>
+                        <Text style={styles.slotMeta}>{slot.sub} · {slot.time}</Text>
+                      </View>
+                      <View style={[styles.slotCheck, selected && styles.slotCheckSelected]}>
+                        {selected && <Check size={14} strokeWidth={3} color="#fff" />}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            <View style={styles.footer}>
+              <Pressable style={styles.circularBtn} onPress={() => setStatus('success')}>
+                <X size={28} color="#000" />
+              </Pressable>
+              <Pressable
+                style={[styles.primaryBtn, selectedSlots.size === 0 && styles.primaryBtnDisabled]}
+                onPress={() => onAdd(Array.from(selectedSlots))}
+                disabled={selectedSlots.size === 0}
+              >
+                <Check size={20} color="#FFFFFF" strokeWidth={2.5} />
+                <Text style={styles.primaryBtnText}>Save to Library</Text>
               </Pressable>
             </View>
           </Animated.View>
@@ -473,9 +538,81 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 4,
   },
+  primaryBtnDisabled: {
+    backgroundColor: 'rgba(0,107,255,0.35)',
+    shadowOpacity: 0,
+  },
   primaryBtnText: {
     fontSize: 16,
     fontFamily: geistSemiBold,
     color: '#FFF',
+  },
+  scheduleHeader: {
+    alignItems: 'center',
+    paddingTop: 16,
+    paddingBottom: 32,
+    gap: 10,
+  },
+  scheduleTitle: {
+    fontSize: 24,
+    fontFamily: geistSemiBold,
+    color: '#000',
+    letterSpacing: -0.7,
+    textAlign: 'center',
+  },
+  scheduleSub: {
+    fontSize: 14,
+    fontFamily: geistRegular,
+    color: 'rgba(0,0,0,0.5)',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  slotList: {
+    gap: 10,
+  },
+  slotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 18,
+    padding: 18,
+    gap: 14,
+  },
+  slotRowSelected: {
+    backgroundColor: 'rgba(0,107,255,0.08)',
+    borderWidth: 1.5,
+    borderColor: '#006BFF',
+  },
+  slotTexts: {
+    flex: 1,
+  },
+  slotLabel: {
+    fontSize: 16,
+    fontFamily: geistSemiBold,
+    color: '#000',
+    letterSpacing: -0.35,
+  },
+  slotLabelSelected: {
+    color: '#006BFF',
+  },
+  slotMeta: {
+    fontSize: 12,
+    fontFamily: geistMedium,
+    color: 'rgba(0,0,0,0.45)',
+    letterSpacing: -0.2,
+    marginTop: 2,
+  },
+  slotCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slotCheckSelected: {
+    backgroundColor: '#006BFF',
+    borderColor: '#006BFF',
   },
 });
