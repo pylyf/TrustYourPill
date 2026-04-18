@@ -12,6 +12,51 @@ import { ExternalLink, Sparkles } from 'lucide-react-native';
 import { colors, fonts } from '../theme';
 import { getUserSupplements, type SupplementRecommendation, type UserMedication } from '../lib/api';
 
+// ─── Static popular supplements (always shown immediately) ──────────────────
+
+const POPULAR_SUPPLEMENTS: SupplementRecommendation[] = [
+  {
+    candidateName: 'Probiotic (Lactobacillus acidophilus)',
+    label: 'Gut health & immunity',
+    rationale: 'Antibiotics and NSAIDs can disrupt gut flora. A daily probiotic helps restore balance, supports digestion, and strengthens the immune barrier.',
+    sources: [
+      { store: 'iHerb', price: '$14.99', url: 'https://iherb.com' },
+      { store: 'Amazon', price: '$12.49', url: 'https://amazon.com' },
+      { store: 'Vitacost', price: '$11.99', url: 'https://vitacost.com' },
+    ],
+  },
+  {
+    candidateName: 'Vitamin D3 (2000 IU)',
+    label: 'Bone, mood & immune support',
+    rationale: 'Most adults are deficient, especially indoors. Vitamin D3 supports immune function, mood regulation, and calcium absorption for bone health.',
+    sources: [
+      { store: 'iHerb', price: '$8.99', url: 'https://iherb.com' },
+      { store: 'Thorne', price: '$16.00', url: 'https://thorne.com' },
+      { store: 'Amazon', price: '$7.49', url: 'https://amazon.com' },
+    ],
+  },
+  {
+    candidateName: 'Magnesium Glycinate (400 mg)',
+    label: 'Sleep, stress & muscle recovery',
+    rationale: 'Magnesium is depleted by stress and medication use. Glycinate form is gentle on the stomach and improves sleep quality and muscle relaxation.',
+    sources: [
+      { store: 'iHerb', price: '$18.50', url: 'https://iherb.com' },
+      { store: 'Vitacost', price: '$15.99', url: 'https://vitacost.com' },
+      { store: 'Amazon', price: '$14.99', url: 'https://amazon.com' },
+    ],
+  },
+  {
+    candidateName: 'Omega-3 (EPA/DHA)',
+    label: 'Heart, brain & inflammation',
+    rationale: 'Omega-3 fatty acids reduce systemic inflammation, support cardiovascular health, and improve brain function. Particularly helpful alongside long-term medication use.',
+    sources: [
+      { store: 'Nordic Naturals', price: '$29.95', url: 'https://nordicnaturals.com' },
+      { store: 'iHerb', price: '$22.00', url: 'https://iherb.com' },
+      { store: 'Amazon', price: '$19.99', url: 'https://amazon.com' },
+    ],
+  },
+];
+
 // Asset pool — cycle through by index
 const IMAGES = [
   require('../assets/drops.png'),
@@ -20,6 +65,13 @@ const IMAGES = [
   require('../assets/syringe.png'),
   require('../assets/inhaler.png'),
 ];
+
+// Truncate price to just the dollar amount portion (e.g. "$8–$20")
+function shortPrice(price: string): string {
+  // Take everything up to the first space after the price pattern
+  const match = price.match(/^\$[\d.,–\-–]+/);
+  return match ? match[0] : price.slice(0, 10);
+}
 
 // Skeleton shimmer
 
@@ -102,7 +154,7 @@ function SupplementCard({ item, index }: { item: SupplementRecommendation; index
               <View key={i} style={styles.pillSourceRow}>
                 <ExternalLink size={11} strokeWidth={2.4} color={colors.accent} />
                 <Text style={styles.pillSourceTxt}>{src.store}</Text>
-                <Text style={styles.pillSourcePrice}>{src.price}</Text>
+                <Text style={styles.pillSourcePrice}>{shortPrice(src.price)}</Text>
               </View>
             ))}
           </View>
@@ -119,15 +171,28 @@ type Props = {
 };
 
 export function AnalysisScreen({ medications: _medications }: Props) {
-  const [supplements, setSupplements] = useState<SupplementRecommendation[]>([]);
-  const [supplementsLoading, setSupplementsLoading] = useState(true);
+  const [dynamicSupplements, setDynamicSupplements] = useState<SupplementRecommendation[]>([]);
+  const [dynamicLoading, setDynamicLoading] = useState(true);
 
   useEffect(() => {
     getUserSupplements()
-      .then(setSupplements)
-      .catch(() => setSupplements([]))
-      .finally(() => setSupplementsLoading(false));
+      .then((results) => {
+        // Exclude any that duplicate a popular supplement by name
+        const popularNames = new Set(
+          POPULAR_SUPPLEMENTS.map((s) => s.candidateName.toLowerCase().replace(/[^a-z0-9]/g, ''))
+        );
+        const unique = results.filter((r) => {
+          const key = r.candidateName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return !popularNames.has(key);
+        });
+        setDynamicSupplements(unique);
+      })
+      .catch(() => setDynamicSupplements([]))
+      .finally(() => setDynamicLoading(false));
   }, []);
+
+  // All cards: static first, dynamic below (offset index for animation)
+  const staticOffset = POPULAR_SUPPLEMENTS.length;
 
   return (
     <View style={styles.content}>
@@ -142,25 +207,25 @@ export function AnalysisScreen({ medications: _medications }: Props) {
       >
         <View style={styles.section}>
           <SectionLabel icon={Sparkles} label="Recommended supplements" />
-          {supplementsLoading ? (
-            <View style={styles.cardList}>
-              {[0, 1, 2].map((i) => <SkeletonCard key={i} index={i} />)}
-            </View>
-          ) : supplements.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Sparkles size={32} strokeWidth={1.5} color="rgba(0,0,0,0.2)" />
-              <Text style={styles.emptyTitle}>No supplements suggested yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Add medications to your library to get personalised supplement recommendations.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.cardList}>
-              {supplements.map((item, index) => (
-                <SupplementCard key={item.candidateName} item={item} index={index} />
-              ))}
-            </View>
-          )}
+          <View style={styles.cardList}>
+            {/* Static popular supplements — shown immediately */}
+            {POPULAR_SUPPLEMENTS.map((item, index) => (
+              <SupplementCard key={item.candidateName} item={item} index={index} />
+            ))}
+
+            {/* Dynamic medication-specific supplements */}
+            {dynamicLoading ? (
+              [0, 1].map((i) => <SkeletonCard key={`sk-${i}`} index={i} />)
+            ) : (
+              dynamicSupplements.map((item, index) => (
+                <SupplementCard
+                  key={item.candidateName}
+                  item={item}
+                  index={staticOffset + index}
+                />
+              ))
+            )}
+          </View>
         </View>
       </ScrollView>
     </View>

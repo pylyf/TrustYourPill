@@ -160,7 +160,7 @@ export class SupplementSourcesService {
           model: env.OPENAI_MODEL,
           store: false,
           instructions:
-            "You are a supplement retail expert. For each supplement provided, give 2–3 reputable online retailers with realistic prices for a standard 30–90 day supply. Use real store names (iHerb, Amazon, Thorne, Vitacost, Nordic Naturals, Life Extension, etc.) and valid base URLs.",
+            "You are a supplement retail expert. For each supplement provided, give 2–3 reputable online retailers with realistic prices. Price MUST be a short string only — maximum 10 characters, e.g. '$12.99' or '$8–$20'. No extra text, no descriptions, no units, no parentheses. Use real store names (iHerb, Amazon, Thorne, Vitacost, Walmart, CVS, Nordic Naturals, Life Extension, etc.) and valid base URLs.",
           input: `Provide store purchase options for: ${names.join(", ")}`,
           text: {
             format: {
@@ -216,9 +216,11 @@ export class SupplementSourcesService {
       };
 
       return supplements.map((s) => {
-        const match = parsed.results.find(
-          (r) => r.supplementName.toLowerCase() === s.candidateName.toLowerCase()
-        );
+        const needle = s.candidateName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const match = parsed.results.find((r) => {
+          const hay = r.supplementName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return hay === needle || hay.includes(needle) || needle.includes(hay);
+        });
         return { ...s, sources: match?.sources ?? [] };
       });
     } catch (err) {
