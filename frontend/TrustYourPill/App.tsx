@@ -22,6 +22,8 @@ import {
   addUserMedication,
   deleteUserMedication,
   searchMedication,
+  getTodayDoseLogs,
+  toggleDoseLog,
   type UserMedication,
   type MedicationCandidate,
   type MedicationAnalysis,
@@ -74,6 +76,7 @@ export default function App() {
   const [scannedCandidate, setScannedCandidate] = useState<MedicationCandidate | null>(null);
   const [scannedDosage, setScannedDosage] = useState<string | null>(null);
   const [userMedications, setUserMedications] = useState<UserMedication[]>([]);
+  const [takenIds, setTakenIds] = useState<Set<string>>(new Set());
   const [isEmergencyDrawerVisible, setIsEmergencyDrawerVisible] = useState(false);
   const [isAppointmentsDrawerVisible, setIsAppointmentsDrawerVisible] = useState(false);
 
@@ -107,9 +110,39 @@ export default function App() {
     }
   }, []);
 
+  const loadTakenIds = useCallback(async () => {
+    try {
+      const ids = await getTodayDoseLogs();
+      setTakenIds(new Set(ids));
+    } catch {
+      // silently ignore
+    }
+  }, []);
+
+  const handleToggleTaken = useCallback(async (id: string) => {
+    // Optimistic update
+    setTakenIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+    try {
+      const ids = await toggleDoseLog(id);
+      setTakenIds(new Set(ids));
+    } catch {
+      // revert optimistic update on failure
+      setTakenIds((prev) => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+      });
+    }
+  }, []);
+
   useEffect(() => {
     loadMedications();
-  }, [loadMedications]);
+    loadTakenIds();
+  }, [loadMedications, loadTakenIds]);
 
   const onAction = useCallback((action: NavAction) => {
     if (action === 'scan') {
@@ -194,6 +227,8 @@ export default function App() {
         <AnimatedScreen visible={tab === 'home'}>
           <HomeScreen
             medications={userMedications}
+            takenIds={takenIds}
+            onToggleTaken={handleToggleTaken}
             onOpenCheckup={openCheckup}
             onOpenEmergency={() => setIsEmergencyDrawerVisible(true)}
             onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)}
@@ -207,6 +242,8 @@ export default function App() {
         <AnimatedScreen visible={tab === 'library'}>
           <PillLibraryScreen
             medications={userMedications}
+            takenIds={takenIds}
+            onToggleTaken={handleToggleTaken}
             onAdd={openScan}
             onDelete={handleDeleteMedication}
           />

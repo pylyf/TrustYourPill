@@ -141,3 +141,23 @@ export async function getUserSupplements(): Promise<SupplementRecommendation[]> 
   const data = await res.json();
   return data.supplements as SupplementRecommendation[];
 }
+
+// ── Dose logs ─────────────────────────────────────────────────────────────────
+
+export async function getTodayDoseLogs(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/users/${DEMO_USER_ID}/dose-logs/today`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.takenIds as string[];
+}
+
+export async function toggleDoseLog(medicationId: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/users/${DEMO_USER_ID}/dose-logs/toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ medicationId }),
+  });
+  if (!res.ok) throw new Error('Failed to toggle dose log');
+  const data = await res.json();
+  return data.takenIds as string[];
+}

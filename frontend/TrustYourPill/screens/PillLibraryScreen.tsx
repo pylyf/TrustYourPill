@@ -59,20 +59,13 @@ type Props = {
   medications: UserMedication[];
   onAdd: () => void;
   onDelete: (medId: string) => void;
+  takenIds: Set<string>;
+  onToggleTaken: (id: string) => void;
 };
 
-export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
+export function PillLibraryScreen({ medications, onAdd, onDelete, takenIds, onToggleTaken }: Props) {
   const [detailMed, setDetailMed] = useState<UserMedication | null>(null);
   const [detailGradient, setDetailGradient] = useState<GradientKey>('lightBlue');
-  const [takenIds, setTakenIds] = useState<Set<string>>(new Set());
-
-  const toggleTaken = (id: string) =>
-    setTakenIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-
   const openDetail = (med: UserMedication, gradient: GradientKey) => {
     setDetailGradient(gradient);
     setDetailMed(med);
@@ -141,7 +134,7 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
                     onDelete={onDelete}
                     onInfo={openDetail}
                     takenIds={takenIds}
-                    onToggleTaken={toggleTaken}
+                    onToggleTaken={onToggleTaken}
                   />
                 ))}
               </View>
@@ -161,7 +154,7 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
                         taken={takenIds.has(med.id)}
                         onDelete={() => onDelete(med.id)}
                         onInfo={() => openDetail(med, gradient)}
-                        onToggleTaken={() => toggleTaken(med.id)}
+                        onToggleTaken={() => onToggleTaken(med.id)}
                       />
                     );
                   })}

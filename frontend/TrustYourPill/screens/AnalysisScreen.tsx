@@ -59,6 +59,9 @@ const POPULAR_SUPPLEMENTS: SupplementRecommendation[] = [
   },
 ];
 
+// Module-level cache — survives tab switches, cleared on full app reload
+let _supplementsCache: SupplementRecommendation[] | null = null;
+
 // Asset pool — cycle through by index
 const IMAGES = [
   require('../assets/drops.png'),
@@ -166,10 +169,13 @@ type Props = {
 };
 
 export function AnalysisScreen({ medications: _medications }: Props) {
-  const [dynamicSupplements, setDynamicSupplements] = useState<SupplementRecommendation[]>([]);
-  const [dynamicLoading, setDynamicLoading] = useState(true);
+  const [dynamicSupplements, setDynamicSupplements] = useState<SupplementRecommendation[]>(
+    _supplementsCache ?? []
+  );
+  const [dynamicLoading, setDynamicLoading] = useState(_supplementsCache === null);
 
   useEffect(() => {
+    if (_supplementsCache !== null) return; // already cached — skip fetch
     getUserSupplements()
       .then((results) => {
         // Exclude any that duplicate a popular supplement by name
@@ -180,6 +186,7 @@ export function AnalysisScreen({ medications: _medications }: Props) {
           const key = r.candidateName.toLowerCase().replace(/[^a-z0-9]/g, '');
           return !popularNames.has(key);
         });
+        _supplementsCache = unique;
         setDynamicSupplements(unique);
       })
       .catch(() => setDynamicSupplements([]))

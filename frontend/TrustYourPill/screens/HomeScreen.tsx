@@ -305,24 +305,19 @@ function PillCard({ med, gradientKey, taken = false, onToggle }: PillCardProps) 
 
 export function HomeScreen({
   medications,
+  takenIds,
+  onToggleTaken,
   onOpenCheckup,
   onOpenEmergency,
   onOpenAppointments,
 }: {
   medications: UserMedication[];
+  takenIds: Set<string>;
+  onToggleTaken: (id: string) => void;
   onOpenCheckup: () => void;
   onOpenEmergency: () => void;
   onOpenAppointments: () => void;
 }) {
-  const [takenIds, setTakenIds] = useState<Set<string>>(new Set());
-
-  const toggleTaken = (id: string) =>
-    setTakenIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-
   const totalDailyDoses = medications.reduce((s, m) => s + m.scheduleTimes.length, 0);
   const pillsTaken = medications.filter((m) => takenIds.has(m.id)).length;
   const adherencePercent = medications.length > 0 ? Math.round((pillsTaken / medications.length) * 100) : 0;
@@ -406,13 +401,13 @@ export function HomeScreen({
           med={firstPill}
           gradientKey={pillGradientCycle[0]}
           taken={firstPill !== null && takenIds.has(firstPill.id)}
-          onToggle={firstPill ? () => toggleTaken(firstPill.id) : undefined}
+          onToggle={firstPill ? () => onToggleTaken(firstPill.id) : undefined}
         />
         <PillCard
           med={secondPill}
           gradientKey={pillGradientCycle[1]}
           taken={secondPill !== null && takenIds.has(secondPill.id)}
-          onToggle={secondPill ? () => toggleTaken(secondPill.id) : undefined}
+          onToggle={secondPill ? () => onToggleTaken(secondPill.id) : undefined}
         />
       </View>
 
