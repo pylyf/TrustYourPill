@@ -28,6 +28,7 @@ import {
   User,
   ClipboardList,
   Clock,
+  X,
 } from 'lucide-react-native';
 import { colors, fonts, gradients } from '../theme';
 
@@ -90,18 +91,22 @@ export function OnboardingScreen({ onComplete }: Props) {
     }
   }, [step, name, sex, ageBracket, goals, reminderSlots]);
 
+  const finish = () => {
+    onComplete({
+      name: name.trim() || 'Friend',
+      sex,
+      ageBracket,
+      goals,
+      reminderSlots,
+      notificationsEnabled,
+      cameraEnabled,
+    });
+  };
+
   const next = () => {
     if (!canAdvance) return;
     if (step >= TOTAL_STEPS - 1) {
-      onComplete({
-        name: name.trim() || 'Friend',
-        sex,
-        ageBracket,
-        goals,
-        reminderSlots,
-        notificationsEnabled,
-        cameraEnabled,
-      });
+      finish();
       return;
     }
     setStep((s) => s + 1);
@@ -124,9 +129,16 @@ export function OnboardingScreen({ onComplete }: Props) {
 
       <View style={styles.header}>
         <StepIndicator current={step} total={TOTAL_STEPS} />
-        <Pressable onPress={next} hitSlop={10}>
-          <Text style={styles.skip}>{step === TOTAL_STEPS - 1 ? '' : 'Skip'}</Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          {step < TOTAL_STEPS - 1 && (
+            <Pressable onPress={finish} hitSlop={10}>
+              <Text style={styles.skip}>Skip</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={finish} hitSlop={10} style={styles.closeBtn}>
+            <X size={16} strokeWidth={2.4} color={colors.dark} />
+          </Pressable>
+        </View>
       </View>
 
       <Animated.View
@@ -820,6 +832,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(0,0,0,0.5)',
     letterSpacing: -0.25,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9999,
+    backgroundColor: colors.cardGray,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   body: { flex: 1, paddingHorizontal: 28, paddingTop: 18 },
