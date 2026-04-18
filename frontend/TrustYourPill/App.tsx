@@ -35,13 +35,23 @@ function AnimatedScreen({ visible, children }: { visible: boolean; children: Rea
       opacity.setValue(0);
       translateY.setValue(18);
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
-        Animated.spring(translateY, { toValue: 0, damping: 22, stiffness: 200, useNativeDriver: true }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateY, {
+          toValue: 0,
+          damping: 22,
+          stiffness: 200,
+          useNativeDriver: true,
+        }),
       ]).start();
     }
   }, [visible]);
 
   if (!visible) return null;
+
   return (
     <Animated.View style={[styles.animatedScreen, { opacity, transform: [{ translateY }] }]}>
       {children}
@@ -113,10 +123,9 @@ export default function App() {
 
   const handleScanConfirm = useCallback(async (name: string, dosageText?: string | null) => {
     setScannedName(name);
-    setScannedCandidate(null);
     setScannedDosage(dosageText ?? null);
+    setScannedCandidate(null);
     setOverlay('medOverview');
-    // Search in background to resolve rxcui for saving
     try {
       const result = await searchMedication(name);
       if (result.candidates.length > 0) {
@@ -140,19 +149,18 @@ export default function App() {
           rxaui: candidate.rxaui,
           source: candidate.source,
           searchScore: candidate.confidenceScore,
+          dosageText: scannedDosage ?? undefined,
           scheduleTimes,
-          dosageText: scannedDosage,
         });
       } else {
-        // Fallback: save with name only (rxcui = name slug, unique enough for demo)
         await addUserMedication({
           inputName: scannedName,
           displayName: scannedName,
           normalizedName: scannedName.toLowerCase(),
           rxcui: scannedName.toLowerCase().replace(/\s+/g, '-'),
           source: 'scan',
+          dosageText: scannedDosage ?? undefined,
           scheduleTimes,
-          dosageText: scannedDosage,
         });
       }
       await loadMedications();
@@ -181,7 +189,6 @@ export default function App() {
       <View style={styles.screen}>
         <AnimatedScreen visible={tab === 'home'}>
           <HomeScreen
-            medications={userMedications}
             onOpenCheckup={openCheckup}
             onOpenEmergency={() => setIsEmergencyDrawerVisible(true)}
             onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)}
@@ -213,6 +220,7 @@ export default function App() {
 
         <BottomNav activeTab={tab} onAction={onAction} />
       </View>
+
       <ScanScreen
         visible={overlay === 'scan'}
         onClose={closeOverlay}
@@ -234,7 +242,9 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  animatedScreen: { ...StyleSheet.absoluteFillObject },
+  animatedScreen: {
+    ...StyleSheet.absoluteFillObject,
+  },
   overlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,

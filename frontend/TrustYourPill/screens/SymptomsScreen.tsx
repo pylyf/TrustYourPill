@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Activity, Check, Clock } from 'lucide-react-native';
+import { Activity, AlertTriangle, Check, Clock } from 'lucide-react-native';
 import { colors, fonts, gradients } from '../theme';
 
 type SymptomKey =
@@ -33,6 +33,13 @@ const HISTORY = [
   { id: '3', when: 'Apr 16 · 14:05', items: ['Stomach', 'Nausea'] },
 ];
 
+const SIDE_EFFECTS: Record<string, SymptomKey[]> = {
+  Paracetamol: ['nausea', 'soreThroat'],
+  Ibuprofen: ['stomach', 'nausea', 'dizzy'],
+};
+
+const ACTIVE_PILLS = ['Paracetamol', 'Ibuprofen'];
+
 export function SymptomsScreen() {
   const [selected, setSelected] = useState<Set<SymptomKey>>(new Set());
   const [feelingGood, setFeelingGood] = useState(false);
@@ -52,6 +59,17 @@ export function SymptomsScreen() {
   const otherFilled = otherSymptom.trim().length > 0;
   const canSubmit = feelingGood || (selected.size > 0 && (!otherSelected || otherFilled));
   const loggedCount = selected.size;
+  const selectedLabels = SYMPTOMS.filter((item) => selected.has(item.key)).map((item) => item.label.toLowerCase());
+  const possibleSideEffects = useMemo(() => {
+    if (feelingGood || selected.size === 0) return [];
+    return ACTIVE_PILLS.flatMap((pill) => {
+      const matched = (SIDE_EFFECTS[pill] ?? []).filter((symptom) => selected.has(symptom));
+      return matched.map((symptom) => ({
+        pill,
+        symptom: SYMPTOMS.find((item) => item.key === symptom)?.label.toLowerCase() ?? symptom,
+      }));
+    });
+  }, [feelingGood, selected]);
 
   return (
     <ScrollView
@@ -122,6 +140,46 @@ export function SymptomsScreen() {
             placeholderTextColor="rgba(0,0,0,0.35)"
             style={styles.otherInput}
           />
+        </View>
+      ) : null}
+
+      {!feelingGood && selected.size > 0 ? (
+        <View style={styles.sideEffectsBlock}>
+          <Text style={styles.sectionTitle}>Could this be related?</Text>
+          {possibleSideEffects.length > 0 ? (
+            possibleSideEffects.map((item, index) => (
+              <LinearGradient
+                key={`${item.pill}-${item.symptom}-${index}`}
+                colors={gradients.warningChip as unknown as readonly [string, string]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.sideEffectCard}
+              >
+                <AlertTriangle size={18} strokeWidth={2.3} color="#8A3A14" />
+                <View style={styles.sideEffectCopy}>
+                  <Text style={styles.sideEffectTitle}>{item.pill}</Text>
+                  <Text style={styles.sideEffectBody}>
+                    This medication may be causing {item.symptom}: {item.pill}
+                  </Text>
+                </View>
+              </LinearGradient>
+            ))
+          ) : (
+            <LinearGradient
+              colors={gradients.warningChip as unknown as readonly [string, string]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.sideEffectCard}
+            >
+              <AlertTriangle size={18} strokeWidth={2.3} color="#8A3A14" />
+              <View style={styles.sideEffectCopy}>
+                <Text style={styles.sideEffectTitle}>Medication check</Text>
+                <Text style={styles.sideEffectBody}>
+                  {`No direct medication match found for ${selectedLabels.join(', ')} yet.`}
+                </Text>
+              </View>
+            </LinearGradient>
+          )}
         </View>
       ) : null}
 
@@ -217,6 +275,29 @@ const styles = StyleSheet.create({
     color: colors.dark,
     fontFamily: fonts.medium,
     letterSpacing: -0.3,
+  },
+  sideEffectsBlock: { gap: 10 },
+  sideEffectCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    borderRadius: 22,
+  },
+  sideEffectCopy: { flex: 1 },
+  sideEffectTitle: {
+    fontSize: 15,
+    color: '#000',
+    fontFamily: fonts.semiBold,
+    letterSpacing: -0.35,
+  },
+  sideEffectBody: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#8A3A14',
+    fontFamily: fonts.medium,
+    letterSpacing: -0.2,
   },
   cta: {
     backgroundColor: colors.accent, borderRadius: 22,

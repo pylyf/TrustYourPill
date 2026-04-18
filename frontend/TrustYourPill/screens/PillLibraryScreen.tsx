@@ -1,25 +1,37 @@
-﻿import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, Pill as PillIcon, Plus, Trash2 } from 'lucide-react-native';
+import {
+  BookOpen,
+  Pill as PillIcon,
+  Plus,
+  Trash2,
+} from 'lucide-react-native';
 import { colors, fonts, gradients, type GradientKey } from '../theme';
 import type { UserMedication } from '../lib/api';
 
 const SLOT_LABELS: Record<string, string> = {
-  morning:   'Morning',
-  midday:    'Midday',
+  morning: 'Morning',
+  midday: 'Midday',
   afternoon: 'Afternoon',
-  evening:   'Evening',
-  bedtime:   'Bedtime',
+  evening: 'Evening',
+  bedtime: 'Bedtime',
 };
 
 const SLOT_TIMES: Record<string, string> = {
-  morning:   '08:00',
-  midday:    '12:30',
+  morning: '08:00',
+  midday: '12:30',
   afternoon: '14:30',
-  evening:   '18:30',
-  bedtime:   '22:00',
+  evening: '18:30',
+  bedtime: '22:00',
 };
 
+// Cycle through card gradients for visual variety
 const CARD_GRADIENTS: GradientKey[] = [
   'lightBlue',
   'warmPeach',
@@ -30,6 +42,11 @@ const CARD_GRADIENTS: GradientKey[] = [
 
 function gradientForIndex(index: number): GradientKey {
   return CARD_GRADIENTS[index % CARD_GRADIENTS.length];
+}
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 type Props = {
@@ -45,7 +62,7 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
       contentContainerStyle={styles.contentInner}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <View>
           <Text style={styles.kicker}>Your medications</Text>
@@ -56,7 +73,7 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
         </Pressable>
       </View>
 
-      {/* Summary card */}
+      {/* ── Summary card ── */}
       <LinearGradient
         colors={['#FFFFFF', '#F9FAFB']}
         start={{ x: 0, y: 0 }}
@@ -100,8 +117,6 @@ function MedCard({
   gradient: GradientKey;
   onDelete: () => void;
 }) {
-  const hasSchedule = med.scheduleTimes.length > 0;
-
   return (
     <LinearGradient
       colors={gradients[gradient] as unknown as readonly [string, string]}
@@ -114,24 +129,28 @@ function MedCard({
       </View>
 
       <View style={styles.medInfo}>
-        <Text style={styles.medName} numberOfLines={1}>{med.displayName}</Text>
+        <Text style={styles.medName} numberOfLines={1}>
+          {med.displayName}
+        </Text>
 
         {med.dosageText ? (
           <Text style={styles.medDosage} numberOfLines={1}>{med.dosageText}</Text>
         ) : null}
 
-        {hasSchedule ? (
+        {med.scheduleTimes.length > 0 ? (
           <View style={styles.chipRow}>
             {med.scheduleTimes.map((slotId) => (
               <View key={slotId} style={styles.chip}>
                 <Text style={styles.chipText}>
-                  {SLOT_LABELS[slotId] ?? slotId} Â· {SLOT_TIMES[slotId] ?? ''}
+                  {SLOT_LABELS[slotId] ?? slotId} · {SLOT_TIMES[slotId] ?? ''}
                 </Text>
               </View>
             ))}
           </View>
         ) : (
-          <Text style={styles.medMeta}>No schedule set</Text>
+          <Text style={styles.medMeta} numberOfLines={1}>
+            Added {formatDate(med.createdAt)}
+          </Text>
         )}
       </View>
 
@@ -213,7 +232,7 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     padding: 20,
-    gap: 4,
+    gap: 6,
   },
   cardLabel: {
     fontSize: 13,
@@ -249,7 +268,7 @@ const styles = StyleSheet.create({
 
   medCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
     padding: 16,
     borderRadius: 22,
@@ -261,9 +280,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.7)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
-  medInfo: { flex: 1, gap: 4 },
+  medInfo: { flex: 1 },
   medName: {
     fontSize: 16,
     color: '#000',
@@ -278,15 +296,16 @@ const styles = StyleSheet.create({
   },
   medMeta: {
     fontSize: 12,
-    color: 'rgba(0,0,0,0.4)',
+    color: 'rgba(0,0,0,0.5)',
     fontFamily: fonts.medium,
     letterSpacing: -0.2,
+    marginTop: 2,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 2,
+    marginTop: 4,
   },
   chip: {
     backgroundColor: 'rgba(255,255,255,0.65)',
