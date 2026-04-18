@@ -269,40 +269,41 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.screen}>
-        <View style={styles.hero}>
-          <View style={styles.topBar}>
-            <View style={styles.profileRow}>
-              <Image source={{ uri: avatarUri }} style={styles.avatar} />
-              <View>
-                <Text style={styles.greeting}>Good morning,</Text>
-                <Text style={styles.name}>Hans</Text>
-              </View>
-            </View>
-            <View style={styles.notificationButton}>
-              <Bell color="#000000" size={22} strokeWidth={2.1} />
-            </View>
-          </View>
-
-          <View style={styles.statusRow}>
-            <View style={styles.statusLine} />
-            <Text style={styles.statusText}>All in clear</Text>
-          </View>
-
-          <Text style={styles.headline}>How Are You</Text>
-          <Text style={styles.headline}>Feeling Today?</Text>
-
-          <View style={styles.actionsRow}>
-            <ActionCard label="Daily Checkup" icon={HeartPulse} active />
-            <ActionCard label="Appointments" icon={CalendarDays} />
-            <ActionCard label="" icon={Phone} active compact solid />
-          </View>
-        </View>
-
         <ScrollView
           style={styles.content}
           contentContainerStyle={styles.contentInner}
           showsVerticalScrollIndicator={false}
         >
+          {/* Hero section — now part of the scrollable page */}
+          <View style={styles.hero}>
+            <View style={styles.topBar}>
+              <View style={styles.profileRow}>
+                <Image source={{ uri: avatarUri }} style={styles.avatar} />
+                <View>
+                  <Text style={styles.greeting}>Good morning,</Text>
+                  <Text style={styles.name}>Hans</Text>
+                </View>
+              </View>
+              <View style={styles.notificationButton}>
+                <Bell color="#000000" size={22} strokeWidth={2.1} />
+              </View>
+            </View>
+
+            <View style={styles.statusRow}>
+              <View style={styles.statusLine} />
+              <Text style={styles.statusText}>All in clear</Text>
+            </View>
+
+            <Text style={styles.headline}>How Are You</Text>
+            <Text style={styles.headline}>Feeling Today?</Text>
+
+            <View style={styles.actionsRow}>
+              <ActionCard label="Daily Checkup" icon={HeartPulse} active />
+              <ActionCard label="Appointments" icon={CalendarDays} />
+              <ActionCard label="" icon={Phone} active compact solid />
+            </View>
+          </View>
+
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Your Day in Pills</Text>
             <Text style={styles.sectionMeta}>
@@ -338,7 +339,9 @@ export default function App() {
               style={[styles.gridCard, styles.pillCard]}
             >
               <Text style={styles.cardLabel}>Paracetamol</Text>
-              <Image source={{ uri: paracetamolUri }} style={styles.pillImage} resizeMode="contain" />
+              <View style={styles.pillImageWrap}>
+                <Image source={{ uri: paracetamolUri }} style={styles.pillImage} resizeMode="contain" />
+              </View>
               <View>
                 <Text style={styles.pillDose}>500mg</Text>
                 <Text style={styles.cardMeta}>Pain relief</Text>
@@ -352,7 +355,9 @@ export default function App() {
               style={[styles.gridCard, styles.pillCard]}
             >
               <Text style={styles.cardLabel}>Ibuprofen</Text>
-              <Image source={{ uri: ibuprofenUri }} style={styles.pillImage} resizeMode="contain" />
+              <View style={styles.pillImageWrap}>
+                <Image source={{ uri: ibuprofenUri }} style={styles.pillImage} resizeMode="contain" />
+              </View>
               <View>
                 <Text style={styles.pillDose}>200mg</Text>
                 <Text style={styles.cardMeta}>Anti-inflam.</Text>
@@ -419,7 +424,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 38,
     paddingTop: 18,
     paddingHorizontal: 35,
-    paddingBottom: 22,
+    paddingBottom: 28,
+    marginBottom: 4,
   },
   topBar: {
     flexDirection: 'row',
@@ -559,8 +565,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentInner: {
-    paddingHorizontal: 28,
-    paddingTop: 28,
     paddingBottom: 110,
     gap: 12,
   },
@@ -569,6 +573,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 6,
+    paddingHorizontal: 28,
+    marginTop: 16,
   },
   sectionTitle: {
     fontSize: 24,
@@ -605,6 +611,7 @@ const styles = StyleSheet.create({
   adherenceCard: {
     borderRadius: 22,
     padding: 20,
+    marginHorizontal: 28,
   },
   adherenceRow: {
     flexDirection: 'row',
@@ -628,6 +635,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 12,
+    paddingHorizontal: 28,
   },
   gridCard: {
     flex: 1,
@@ -635,13 +643,18 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   pillCard: {
-    height: 168,
+    height: 210,
     justifyContent: 'space-between',
   },
+  pillImageWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
   pillImage: {
-    width: '100%',
-    height: 64,
-    marginVertical: 2,
+    width: '90%',
+    height: 90,
   },
   pillDose: {
     fontSize: 22,
