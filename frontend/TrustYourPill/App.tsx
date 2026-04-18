@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import {
@@ -43,6 +44,55 @@ const ibuprofenUri = 'https://www.figma.com/api/mcp/asset/888b5795-7ac3-4d88-bbb
 const geistRegular = 'Geist_400Regular';
 const geistMedium = 'Geist_500Medium';
 const geistSemiBold = 'Geist_600SemiBold';
+
+function AdherenceRing({ percent, size = 72 }: { percent: number; size?: number }) {
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const filled = circumference * (percent / 100);
+  const gap = circumference - filled;
+
+  return (
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Defs>
+          <SvgLinearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#B44FD6" stopOpacity="1" />
+            <Stop offset="100%" stopColor="#5C45E2" stopOpacity="1" />
+          </SvgLinearGradient>
+        </Defs>
+        {/* Track */}
+        <Circle
+          cx={cx} cy={cy} r={r}
+          stroke="rgba(0,0,0,0.18)"
+          strokeWidth={stroke}
+          fill="none"
+        />
+        {/* Progress arc */}
+        <Circle
+          cx={cx} cy={cy} r={r}
+          stroke="url(#ringGrad)"
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={`${filled} ${gap}`}
+          strokeLinecap="round"
+          rotation={-90}
+          origin={`${cx}, ${cy}`}
+        />
+      </Svg>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 15, fontFamily: geistSemiBold, color: '#003d28', letterSpacing: -0.4, lineHeight: 16 }}>
+          {percent}%
+        </Text>
+        <Text style={{ fontSize: 8, fontFamily: geistMedium, color: 'rgba(0,0,0,0.6)', letterSpacing: 0.3, textTransform: 'uppercase', marginTop: 1 }}>
+          done
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 type ActionCardProps = {
   label: string;
@@ -275,9 +325,7 @@ export default function App() {
                 </Text>
                 <Text style={styles.cardMeta}>pills taken</Text>
               </View>
-              <View style={styles.ring}>
-                <Text style={styles.ringText}>50%</Text>
-              </View>
+              <AdherenceRing percent={50} size={72} />
             </View>
           </LinearGradient>
 
@@ -576,21 +624,6 @@ const styles = StyleSheet.create({
     color: 'rgba(0,0,0,0.6)',
     fontFamily: geistMedium,
     letterSpacing: -0.4,
-  },
-  ring: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ringText: {
-    color: '#000000',
-    fontSize: 15,
-    fontFamily: geistSemiBold,
-    letterSpacing: -0.3,
   },
   row: {
     flexDirection: 'row',
