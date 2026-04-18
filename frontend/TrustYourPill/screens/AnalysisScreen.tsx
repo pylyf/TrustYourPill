@@ -12,6 +12,8 @@ import { ExternalLink, Sparkles } from 'lucide-react-native';
 import { colors, fonts } from '../theme';
 import { getUserSupplements, type SupplementRecommendation, type UserMedication } from '../lib/api';
 
+const PILL_BOTTLE = require('../assets/pill1.png');
+
 // ─── Static popular supplements (always shown immediately) ──────────────────
 
 const POPULAR_SUPPLEMENTS: SupplementRecommendation[] = [
@@ -118,7 +120,7 @@ function SectionLabel({ icon: Icon, label }: { icon: any; label: string }) {
   );
 }
 
-function SupplementCard({ item, index }: { item: SupplementRecommendation; index: number }) {
+function SupplementCard({ item, index, isStatic = false }: { item: SupplementRecommendation; index: number; isStatic?: boolean }) {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
@@ -141,7 +143,7 @@ function SupplementCard({ item, index }: { item: SupplementRecommendation; index
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
       <Animated.View style={[styles.supplementCard, { opacity, transform: [{ scale }, { translateY }] }]}>
         <View style={styles.cardHeader}>
-          <Image source={IMAGES[index % IMAGES.length]} style={styles.cardImage} resizeMode="contain" />
+          <Image source={isStatic ? PILL_BOTTLE : IMAGES[index % IMAGES.length]} style={styles.cardImage} resizeMode="contain" />
           <View style={styles.cardTitleWrap}>
             <Text style={styles.cardTitle}>{item.candidateName}</Text>
             <Text style={styles.cardLabel}>{item.label}</Text>
@@ -210,7 +212,7 @@ export function AnalysisScreen({ medications: _medications }: Props) {
           <View style={styles.cardList}>
             {/* Static popular supplements — shown immediately */}
             {POPULAR_SUPPLEMENTS.map((item, index) => (
-              <SupplementCard key={item.candidateName} item={item} index={index} />
+              <SupplementCard key={item.candidateName} item={item} index={index} isStatic />
             ))}
 
             {/* Dynamic medication-specific supplements */}
