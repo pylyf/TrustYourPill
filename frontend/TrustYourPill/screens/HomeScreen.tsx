@@ -223,7 +223,12 @@ function PillCard({ med, gradientKey, taken = false, onToggle }: PillCardProps) 
   const dose = med.dosageText || (med.scheduleTimes.length > 0 ? `${med.scheduleTimes.length}×/day` : '—');
   const meta = `${med.scheduleTimes.length} dose${med.scheduleTimes.length !== 1 ? 's' : ''}/day`;
   return (
-    <Pressable style={{ flex: 1 }} onPress={onToggle}>
+    <Pressable
+      style={({ pressed }) => [styles.pillCardPressable, pressed && styles.pillCardPressed]}
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityLabel={taken ? `Mark ${pillName} as not taken` : `Mark ${pillName} as taken`}
+    >
       <LinearGradient
         colors={gradColors}
         start={{ x: 0, y: 0 }}
@@ -244,6 +249,11 @@ function PillCard({ med, gradientKey, taken = false, onToggle }: PillCardProps) 
         <View>
           <Text style={styles.pillDose}>{taken ? 'Taken ✓' : dose}</Text>
           <Text style={styles.cardMeta}>{meta}</Text>
+        </View>
+        <View style={[styles.pillActionHint, taken && styles.pillActionHintTaken]}>
+          <View style={[styles.pillActionDot, taken && styles.pillActionDotTaken]}>
+            <Check size={10} strokeWidth={2.6} color={taken ? '#26B81E' : 'rgba(0,0,0,0.52)'} />
+          </View>
         </View>
       </LinearGradient>
     </Pressable>
@@ -573,6 +583,8 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', gap: 12, paddingHorizontal: 28 },
   gridCard: { flex: 1, borderRadius: 22, padding: 16 },
+  pillCardPressable: { flex: 1 },
+  pillCardPressed: { opacity: 0.92, transform: [{ scale: 0.985 }] },
   pillCard: { height: 210, justifyContent: 'space-between' },
   pillCardTaken: { opacity: 0.75 },
   pillTakenBadge: {
@@ -591,6 +603,36 @@ const styles = StyleSheet.create({
   pillDose: {
     fontSize: 22, lineHeight: 24, color: '#000',
     fontFamily: fonts.semiBold, letterSpacing: -0.5,
+  },
+  pillActionHint: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.38)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.42)',
+  },
+  pillActionHintTaken: {
+    backgroundColor: 'rgba(255,255,255,0.46)',
+  },
+  pillActionDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
+  pillActionDotTaken: {
+    backgroundColor: 'rgba(38,184,30,0.12)',
+    borderColor: 'rgba(38,184,30,0.16)',
   },
   statCard: { height: 120, justifyContent: 'space-between' },
   statHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
