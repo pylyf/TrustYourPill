@@ -10,6 +10,8 @@ import {
 import { BottomNav, type NavAction, type TabId } from './components/BottomNav';
 import { ScanScreen } from './components/ScanScreen';
 import { MedOverviewScreen } from './components/MedOverviewScreen';
+import { EmergencyDrawer } from './components/EmergencyDrawer';
+import { AppointmentsDrawer } from './components/AppointmentsDrawer';
 import { HomeScreen } from './screens/HomeScreen';
 import { PillLibraryScreen } from './screens/PillLibraryScreen';
 import { SymptomsScreen } from './screens/SymptomsScreen';
@@ -25,6 +27,8 @@ export default function App() {
   const [tab, setTab] = useState<TabId>('home');
   const [overlay, setOverlay] = useState<null | 'checkup' | 'scan' | 'medOverview'>(null);
   const [scannedName, setScannedName] = useState<string | null>(null);
+  const [isEmergencyDrawerVisible, setIsEmergencyDrawerVisible] = useState(false);
+  const [isAppointmentsDrawerVisible, setIsAppointmentsDrawerVisible] = useState(false);
 
   const onAction = useCallback((action: NavAction) => {
     if (action === 'scan') {
@@ -37,7 +41,7 @@ export default function App() {
   const openCheckup = useCallback(() => setOverlay('checkup'), []);
   const closeOverlay = useCallback(() => setOverlay(null), []);
   const openScan = useCallback(() => setOverlay('scan'), []);
-  
+
   const handleScanConfirm = useCallback((name: string) => {
     setScannedName(name);
     setOverlay('medOverview');
@@ -49,7 +53,7 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.screen}>
-        {tab === 'home'     && <HomeScreen onOpenCheckup={openCheckup} />}
+        {tab === 'home'     && <HomeScreen onOpenCheckup={openCheckup} onOpenEmergency={() => setIsEmergencyDrawerVisible(true)} onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)} />}
         {tab === 'symptoms' && <SymptomsScreen />}
         {tab === 'library'  && <PillLibraryScreen onAdd={openScan} />}
 
@@ -61,9 +65,9 @@ export default function App() {
 
         <BottomNav activeTab={tab} onAction={onAction} />
       </View>
-      <ScanScreen 
-        visible={overlay === 'scan'} 
-        onClose={closeOverlay} 
+      <ScanScreen
+        visible={overlay === 'scan'}
+        onClose={closeOverlay}
         onConfirm={handleScanConfirm}
       />
       <MedOverviewScreen
@@ -72,6 +76,8 @@ export default function App() {
         onClose={closeOverlay}
         onAdd={closeOverlay}
       />
+      <EmergencyDrawer visible={isEmergencyDrawerVisible} onClose={() => setIsEmergencyDrawerVisible(false)} />
+      <AppointmentsDrawer visible={isAppointmentsDrawerVisible} onClose={() => setIsAppointmentsDrawerVisible(false)} />
     </SafeAreaView>
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   AlertTriangle,
@@ -22,6 +22,7 @@ const SYMPTOMS = [
   { key: 'dizzy',    emoji: '😵', label: 'Dizzy' },
   { key: 'stomach',  emoji: '🫃', label: 'Stomach' },
   { key: 'fever',    emoji: '🤒', label: 'Fever' },
+  { key: 'other',    emoji: '✍️', label: 'Other' },
 ] as const;
 
 type SymptomKey = typeof SYMPTOMS[number]['key'];
@@ -37,6 +38,7 @@ export function CheckupScreen({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<Step>('symptoms');
   const [feelingGood, setFeelingGood] = useState(false);
   const [symptoms, setSymptoms] = useState<Set<SymptomKey>>(new Set());
+  const [otherSymptom, setOtherSymptom] = useState('');
   const [adherence, setAdherence] = useState<AdherenceAnswer>(null);
 
   const stepIndex = step === 'symptoms' ? 0 : step === 'adherence' ? 1 : 2;
@@ -59,6 +61,9 @@ export function CheckupScreen({ onClose }: { onClose: () => void }) {
     });
   }
 
+  const otherSelected = symptoms.has('other');
+  const otherFilled = otherSymptom.trim().length > 0;
+
   function next() {
     if (step === 'symptoms') setStep('adherence');
     else if (step === 'adherence') setStep('recommendation');
@@ -72,7 +77,7 @@ export function CheckupScreen({ onClose }: { onClose: () => void }) {
   }
 
   const canContinue =
-    (step === 'symptoms' && (feelingGood || symptoms.size > 0)) ||
+    (step === 'symptoms' && (feelingGood || (symptoms.size > 0 && (!otherSelected || otherFilled)))) ||
     (step === 'adherence' && adherence !== null) ||
     step === 'recommendation';
 
@@ -117,6 +122,7 @@ export function CheckupScreen({ onClose }: { onClose: () => void }) {
                 onPress={() => {
                   setFeelingGood((v) => !v);
                   setSymptoms(new Set());
+                  setOtherSymptom('');
                 }}
               >
                 <View style={[styles.checkCircle, feelingGood && styles.checkCircleActive]}>
@@ -148,6 +154,19 @@ export function CheckupScreen({ onClose }: { onClose: () => void }) {
                 );
               })}
             </View>
+
+            {otherSelected ? (
+              <View style={styles.otherInputWrap}>
+                <Text style={styles.otherLabel}>What other symptom/s are you feeling?</Text>
+                <TextInput
+                  value={otherSymptom}
+                  onChangeText={setOtherSymptom}
+                  placeholder="Type your symptom"
+                  placeholderTextColor="rgba(0,0,0,0.35)"
+                  style={styles.otherInput}
+                />
+              </View>
+            ) : null}
           </View>
         )}
 
@@ -330,6 +349,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium, letterSpacing: -0.3,
   },
   chipLabelActive: { color: colors.white, fontFamily: fonts.semiBold },
+  otherInputWrap: { gap: 8 },
+  otherLabel: {
+    fontSize: 14, color: colors.metaStrong,
+    fontFamily: fonts.medium, letterSpacing: -0.25,
+  },
+  otherInput: {
+    backgroundColor: colors.cardGray,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: colors.dark,
+    fontFamily: fonts.medium,
+    letterSpacing: -0.3,
+  },
   optionList: { gap: 10 },
   optionCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,

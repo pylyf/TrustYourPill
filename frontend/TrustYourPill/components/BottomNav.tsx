@@ -91,9 +91,6 @@ export function BottomNav({ activeTab, onAction }: BottomNavProps) {
     if (id !== activeIdRef.current) onAction(id);
   }, [onAction]);
 
-  const leftTab = TABS[0];
-  const rightTabs = TABS.slice(1);
-
   const renderTab = (tab: TabItem, i: number) => {
     const Icon = tab.icon;
     const backgroundColor = widths[i].interpolate({
@@ -140,16 +137,16 @@ export function BottomNav({ activeTab, onAction }: BottomNavProps) {
     <Animated.View
       style={[styles.wrapper, { opacity: entranceOp, transform: [{ translateY: entranceY }] }]}
     >
-      <View style={styles.shadowContainer}>
-        <BlurView intensity={45} tint="light" style={styles.container}>
-          {renderTab(leftTab, 0)}
+      <View style={styles.navRow}>
+        <View style={styles.shadowContainer}>
+          <BlurView intensity={45} tint="light" style={styles.container}>
+            {TABS.map((tab, idx) => renderTab(tab, idx))}
+          </BlurView>
+        </View>
 
-          <Pressable onPress={() => onAction('scan')} style={styles.scanButton}>
-            <Camera size={22} strokeWidth={2.3} color="#FFFFFF" />
-          </Pressable>
-
-          {rightTabs.map((tab, idx) => renderTab(tab, idx + 1))}
-        </BlurView>
+        <Pressable onPress={() => onAction('scan')} style={styles.scanButton}>
+          <Camera size={22} strokeWidth={2.3} color="#111111" />
+        </Pressable>
       </View>
     </Animated.View>
   );
@@ -163,6 +160,11 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     pointerEvents: 'box-none',
+  },
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   shadowContainer: {
     shadowColor: '#000000',
@@ -200,15 +202,18 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   scanButton: {
-    width: 56,
-    height: 48,
-    borderRadius: 28,
-    backgroundColor: '#006BFF',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 4,
+    borderColor: '#006BFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#006BFF',
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
 });
