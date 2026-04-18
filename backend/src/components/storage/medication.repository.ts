@@ -3,6 +3,31 @@ import { SupabaseClientProvider } from "../integrations/supabase.client.js";
 import { createLogger } from "../utils/logger.js";
 import type { TraceContext } from "../utils/trace.js";
 
+export type MedicationAnalysis = {
+  summary: {
+    status: 'avoid_until_reviewed' | 'review_before_use' | 'insufficient_evidence' | 'safe';
+    headline: string;
+    explanation: string;
+  };
+  aiSummary: {
+    headline: string;
+    plainLanguageSummary: string;
+    whatTriggeredThis: string;
+    questionsForClinician: string[];
+  };
+  sideEffectSignals?: Array<{
+    domain: string;
+    severity: string;
+    explanation: string;
+  }>;
+  supportiveCareIdeas?: Array<{
+    type: string;
+    label: string;
+    rationale: string;
+    candidateName: string;
+  }>;
+};
+
 export type UserMedicationRecord = {
   id: string;
   userId: string;
@@ -15,6 +40,8 @@ export type UserMedicationRecord = {
   searchScore: number | null;
   scheduleTimes: string[];
   dosageText: string | null;
+  analysis: MedicationAnalysis | null;
+  analysisAt: string | null;
   createdAt: string;
 };
 
@@ -29,6 +56,7 @@ export type CreateUserMedicationInput = {
   searchScore?: number | null;
   scheduleTimes?: string[];
   dosageText?: string | null;
+  analysis?: MedicationAnalysis | null;
 };
 
 type UserMedicationRow = {
@@ -43,6 +71,8 @@ type UserMedicationRow = {
   search_score: number | null;
   schedule_times: string[];
   dosage_text: string | null;
+  analysis: MedicationAnalysis | null;
+  analysis_at: string | null;
   created_at: string;
 };
 
@@ -87,7 +117,11 @@ export class MedicationRepository {
       source: input.source,
       search_score: input.searchScore ?? null,
       schedule_times: input.scheduleTimes ?? [],
-      dosage_text: input.dosageText ?? null
+      dosage_text: input.dosageText ?? null,
+      ...(input.analysis !== undefined ? {
+        analysis: input.analysis ?? null,
+        analysis_at: input.analysis ? new Date().toISOString() : null,
+      } : {})
     };
 
     const { data, error } = await client
@@ -153,6 +187,8 @@ function mapUserMedicationRow(row: UserMedicationRow): UserMedicationRecord {
     searchScore: row.search_score,
     scheduleTimes: row.schedule_times ?? [],
     dosageText: row.dosage_text ?? null,
+    analysis: row.analysis ?? null,
+    analysisAt: row.analysis_at ?? null,
     createdAt: row.created_at
   };
 }

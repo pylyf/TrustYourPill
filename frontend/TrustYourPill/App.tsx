@@ -23,6 +23,7 @@ import {
   searchMedication,
   type UserMedication,
   type MedicationCandidate,
+  type MedicationAnalysis,
 } from './lib/api';
 
 /** Wraps a screen so it fades + slides up each time it becomes visible */
@@ -136,7 +137,7 @@ export default function App() {
     }
   }, []);
 
-  const handleAddMedication = useCallback(async (scheduleTimes: string[]) => {
+  const handleAddMedication = useCallback(async (scheduleTimes: string[], analysis: MedicationAnalysis | null) => {
     if (!scannedName) return;
     try {
       const candidate = scannedCandidate;
@@ -151,6 +152,7 @@ export default function App() {
           searchScore: candidate.confidenceScore,
           dosageText: scannedDosage ?? undefined,
           scheduleTimes,
+          analysis,
         });
       } else {
         await addUserMedication({
@@ -161,6 +163,7 @@ export default function App() {
           source: 'scan',
           dosageText: scannedDosage ?? undefined,
           scheduleTimes,
+          analysis,
         });
       }
       await loadMedications();

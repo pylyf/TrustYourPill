@@ -2,6 +2,22 @@ const API_BASE = 'http://127.0.0.1:3001';
 
 export const DEMO_USER_ID = 'demo-user-001';
 
+export type MedicationAnalysis = {
+  summary: {
+    status: 'avoid_until_reviewed' | 'review_before_use' | 'insufficient_evidence' | 'safe';
+    headline: string;
+    explanation: string;
+  };
+  aiSummary: {
+    headline: string;
+    plainLanguageSummary: string;
+    whatTriggeredThis: string;
+    questionsForClinician: string[];
+  };
+  sideEffectSignals?: Array<{ domain: string; severity: string; explanation: string }>;
+  supportiveCareIdeas?: Array<{ type: string; label: string; rationale: string; candidateName: string }>;
+};
+
 export type UserMedication = {
   id: string;
   userId: string;
@@ -14,6 +30,8 @@ export type UserMedication = {
   searchScore?: number;
   scheduleTimes: string[];
   dosageText?: string | null;
+  analysis: MedicationAnalysis | null;
+  analysisAt: string | null;
   createdAt: string;
 };
 
@@ -44,6 +62,7 @@ export async function addUserMedication(input: {
   searchScore?: number;
   scheduleTimes?: string[];
   dosageText?: string | null;
+  analysis?: MedicationAnalysis | null;
 }): Promise<UserMedication> {
   const res = await fetch(`${API_BASE}/api/users/${DEMO_USER_ID}/medications`, {
     method: 'POST',

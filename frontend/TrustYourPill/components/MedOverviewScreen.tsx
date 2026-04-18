@@ -29,7 +29,7 @@ type Props = {
   medicationName: string | null;
   currentMedications: string[];
   onClose: () => void;
-  onAdd: (scheduleTimes: string[]) => void;
+  onAdd: (scheduleTimes: string[], analysis: CheckResponse | null) => void;
 };
 
 const TIME_SLOTS = [
@@ -333,7 +333,7 @@ export function MedOverviewScreen({ visible, medicationName, currentMedications,
               </Pressable>
               <Pressable
                 style={[styles.primaryBtn, selectedSlots.size === 0 && styles.primaryBtnDisabled]}
-                onPress={() => onAdd(Array.from(selectedSlots))}
+                onPress={() => onAdd(Array.from(selectedSlots), data)}
                 disabled={selectedSlots.size === 0}
               >
                 <Check size={20} color="#FFFFFF" strokeWidth={2.5} />
