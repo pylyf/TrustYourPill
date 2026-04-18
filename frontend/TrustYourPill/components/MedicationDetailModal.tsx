@@ -75,8 +75,94 @@ type Props = {
   onClose: () => void;
 };
 
-const MOCK_IMAGE =
-  'https://images.unsplash.com/photo-1577069861033-55d04cec4ef5?q=80&w=1000&auto=format&fit=crop';
+// Contextual Unsplash imagery keyed by medication class / common ingredient.
+// We match against the medication display name (lowercased) and fall back to a
+// neutral "pharmacy / pills" shot so we never end up with raspberries on ibuprofen.
+const MED_IMAGE_BY_KEYWORD: Array<{ match: RegExp; url: string }> = [
+  // NSAIDs / pain
+  {
+    match: /ibuprofen|advil|motrin|naproxen|aleve|diclofenac|aspirin/,
+    url: 'https://images.unsplash.com/photo-1550572017-edd951b55104?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Acetaminophen / paracetamol
+  {
+    match: /acetaminophen|paracetamol|tylenol|panadol/,
+    url: 'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Antibiotics
+  {
+    match: /amoxicillin|penicillin|azithromycin|zithromax|ciprofloxacin|cipro|doxycycline|clindamycin|cephalexin|metronidazole|flagyl|augmentin|antibiotic/,
+    url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Statins / cholesterol
+  {
+    match: /atorvastatin|lipitor|simvastatin|rosuvastatin|crestor|pravastatin|statin/,
+    url: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Blood pressure / cardiac
+  {
+    match: /lisinopril|losartan|amlodipine|metoprolol|atenolol|valsartan|ramipril|hydrochlorothiazide|hctz|propranolol/,
+    url: 'https://images.unsplash.com/photo-1628348068343-c6a848d2b6dd?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Diabetes
+  {
+    match: /metformin|glucophage|insulin|glipizide|glyburide|ozempic|semaglutide|jardiance|empagliflozin/,
+    url: 'https://images.unsplash.com/photo-1609840114035-3c981b782dfe?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Antidepressants / mental health
+  {
+    match: /sertraline|zoloft|fluoxetine|prozac|escitalopram|lexapro|citalopram|celexa|paroxetine|paxil|venlafaxine|duloxetine|cymbalta|bupropion|wellbutrin|mirtazapine/,
+    url: 'https://images.unsplash.com/photo-1607619056574-7b8d3ee536b2?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Benzodiazepines / sleep
+  {
+    match: /alprazolam|xanax|lorazepam|ativan|clonazepam|klonopin|diazepam|valium|zolpidem|ambien|melatonin/,
+    url: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Stomach / GI
+  {
+    match: /omeprazole|prilosec|pantoprazole|protonix|esomeprazole|nexium|ranitidine|famotidine|pepcid|antacid/,
+    url: 'https://images.unsplash.com/photo-1550572017-9b9f5a0c8cfe?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Allergy / antihistamine
+  {
+    match: /loratadine|claritin|cetirizine|zyrtec|fexofenadine|allegra|diphenhydramine|benadryl|allergy/,
+    url: 'https://images.unsplash.com/photo-1584515933487-779824d29309?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Birth control / hormones
+  {
+    match: /ethinyl|estradiol|levonorgestrel|norethindrone|contracept|birth control|hormone/,
+    url: 'https://images.unsplash.com/photo-1584308074086-3baee3f83b1b?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Thyroid
+  {
+    match: /levothyroxine|synthroid|liothyronine|thyroid/,
+    url: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Asthma / inhaler
+  {
+    match: /albuterol|ventolin|salbutamol|fluticasone|flovent|symbicort|advair|budesonide|inhaler/,
+    url: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?q=80&w=1200&auto=format&fit=crop',
+  },
+  // Vitamins / supplements
+  {
+    match: /vitamin|multivitamin|probiotic|magnesium|calcium|omega|fish oil|biotin|zinc|iron/,
+    url: 'https://images.unsplash.com/photo-1584308074086-3baee3f83b1b?q=80&w=1200&auto=format&fit=crop',
+  },
+];
+
+// Generic pharmacy / pills fallback — neutral, not food.
+const FALLBACK_MED_IMAGE =
+  'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?q=80&w=1200&auto=format&fit=crop';
+
+function resolveMedImage(name?: string | null): string {
+  if (!name) return FALLBACK_MED_IMAGE;
+  const n = name.toLowerCase();
+  for (const entry of MED_IMAGE_BY_KEYWORD) {
+    if (entry.match.test(n)) return entry.url;
+  }
+  return FALLBACK_MED_IMAGE;
+}
 
 export function MedicationDetailModal({ visible, medication, gradientKey, onClose }: Props) {
   const [details, setDetails] = useState<MedDetails | null>(null);
@@ -167,6 +253,11 @@ export function MedicationDetailModal({ visible, medication, gradientKey, onClos
     return deduped.join('\n\n');
   }, [details]);
 
+  const heroImage = useMemo(
+    () => resolveMedImage(medication?.displayName || medication?.normalizedName),
+    [medication?.displayName, medication?.normalizedName],
+  );
+
   if (!visible || !medication) return null;
 
   return (
@@ -175,7 +266,7 @@ export function MedicationDetailModal({ visible, medication, gradientKey, onClos
         style={[styles.container, { transform: [{ translateY: sheetY }] }]}
         {...panResponder.panHandlers}
       >
-        <ImageBackground source={{ uri: MOCK_IMAGE }} style={styles.imageBackground} blurRadius={2}>
+        <ImageBackground source={{ uri: heroImage }} style={styles.imageBackground} blurRadius={2}>
           <View style={styles.imageOverlay} />
 
           <View style={styles.safeArea}>
