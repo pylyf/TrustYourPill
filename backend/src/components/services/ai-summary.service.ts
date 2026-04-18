@@ -112,6 +112,8 @@ export class AiSummaryService {
             "If you suggest a supplement, present it only as something to ask a clinician or pharmacist about.",
             "Every supplement idea must set requiresReview=true and shouldCheckInteractions=true.",
             "Keep the output concise, practical, and structured.",
+            "plainLanguageSummary must be 1-2 sentences maximum (under 40 words). State only the key finding.",
+            "whatTriggeredThis must be 1 sentence maximum (under 25 words). Name the medication and the specific label section that triggered the signal.",
             "This is based on FDA label information and is not medical advice."
           ].join(" "),
           input: JSON.stringify(buildPromptPayload(input)),

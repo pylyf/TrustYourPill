@@ -243,21 +243,7 @@ export function MedicationDetailModal({ visible, medication, gradientKey, onClos
 
   const description = useMemo(() => {
     if (!details) return '';
-    const parts = [
-      details.aiSummary?.plainLanguageSummary,
-      details.aiSummary?.whatTriggeredThis,
-      details.summary?.explanation,
-    ]
-      .map((p) => (p || '').trim())
-      .filter(Boolean);
-    const seen = new Set<string>();
-    const deduped = parts.filter((p) => {
-      const key = p.slice(0, 80);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    return deduped.join('\n\n');
+    return (details.aiSummary?.plainLanguageSummary || details.summary?.explanation || '').trim();
   }, [details]);
 
   const heroImage = useMemo(
