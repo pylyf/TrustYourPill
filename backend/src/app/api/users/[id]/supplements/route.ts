@@ -35,7 +35,12 @@ export async function getSupplementsRoute(
     // Use candidateName presence as the signal — any idea with a specific product
     // name is purchasable regardless of how the AI classified its type.
     const supplementsFromAnalysis = meds.flatMap((m) =>
-      (m.analysis?.supportiveCareIdeas ?? []).filter((idea) => idea.candidateName != null)
+      (m.analysis?.supportiveCareIdeas ?? [])
+        .filter((idea) => idea.candidateName != null)
+        .map((idea) => ({
+          ...idea,
+          basedOn: [m.displayName]
+        }))
     );
 
     const supplements = await supplementService.getSupplementsForUser(

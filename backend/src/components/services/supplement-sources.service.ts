@@ -18,12 +18,14 @@ export type SupplementRecommendation = {
   label: string;
   rationale: string;
   sources: SupplementSource[];
+  basedOn: string[];
 };
 
 type BaseSupplementItem = {
   candidateName: string;
   label: string;
   rationale: string;
+  basedOn: string[];
 };
 
 export class SupplementSourcesService {
@@ -33,7 +35,7 @@ export class SupplementSourcesService {
   async getSupplementsForUser(
     userId: string,
     medicationNames: string[],
-    supplementsFromAnalysis: Array<{ candidateName: string | null; label: string; rationale: string }>,
+    supplementsFromAnalysis: Array<{ candidateName: string | null; label: string; rationale: string; basedOn: string[] }>,
     traceContext?: TraceContext
   ): Promise<SupplementRecommendation[]> {
     const cacheKey = `supplements_v1:${userId}`;
@@ -47,15 +49,30 @@ export class SupplementSourcesService {
     }
 
     // Filter valid supplements — candidateName must be non-null, then deduplicate
-    const seen = new Set<string>();
-    let baseSupplements: BaseSupplementItem[] = supplementsFromAnalysis
-      .filter((s): s is BaseSupplementItem => Boolean(s.candidateName))
-      .filter((s) => {
-        const key = s.candidateName.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+    const supplementMap = new Map<string, BaseSupplementItem>();
+
+    for (const supplement of supplementsFromAnalysis) {
+      if (!supplement.candidateName) {
+        continue;
+      }
+
+      const key = supplement.candidateName.toLowerCase();
+      const existing = supplementMap.get(key);
+
+      if (!existing) {
+        supplementMap.set(key, {
+          candidateName: supplement.candidateName,
+          label: supplement.label,
+          rationale: supplement.rationale,
+          basedOn: [...supplement.basedOn]
+        });
+        continue;
+      }
+
+      existing.basedOn = Array.from(new Set([...existing.basedOn, ...supplement.basedOn]));
+    }
+
+    let baseSupplements: BaseSupplementItem[] = Array.from(supplementMap.values());
 
     // Fallback: ask AI to recommend supplements when none are stored
     if (baseSupplements.length === 0 && medicationNames.length > 0) {
@@ -129,7 +146,10 @@ export class SupplementSourcesService {
       const text = extractOutputText(body);
       if (!text) return [];
       const parsed = JSON.parse(text) as { supplements: BaseSupplementItem[] };
-      return parsed.supplements ?? [];
+      return (parsed.supplements ?? []).map((supplement) => ({
+        ...supplement,
+        basedOn: medicationNames
+      }));
     } catch (err) {
       this.logger.warn("Failed to get AI supplement recommendations", {
         requestId: traceContext?.requestId,

@@ -140,6 +140,14 @@ const CARD_STEPS = [
   'Searching store prices…',
 ];
 
+function formatBasedOnText(basedOn?: string[]) {
+  if (!basedOn || basedOn.length === 0) {
+    return null;
+  }
+
+  return `Recommended based on: ${basedOn.map((name) => `${name} usage`).join(', ')}`;
+}
+
 function SupplementCard({ item, index, isStatic = false }: { item: SupplementRecommendation; index: number; isStatic?: boolean }) {
   const scale = useRef(new Animated.Value(1)).current;
   const cardOpacity = useRef(new Animated.Value(0)).current;
@@ -210,6 +218,7 @@ function SupplementCard({ item, index, isStatic = false }: { item: SupplementRec
     Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, bounciness: 8 }).start();
   const onPressOut = () =>
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 8 }).start();
+  const basedOnText = formatBasedOnText(item.basedOn);
 
   return (
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
@@ -234,6 +243,7 @@ function SupplementCard({ item, index, isStatic = false }: { item: SupplementRec
               <Animated.View style={{ opacity: contentOpacity }}>
                 <Text style={styles.cardTitle}>{item.candidateName}</Text>
                 <Text style={styles.cardLabel}>{item.label}</Text>
+                {basedOnText ? <Text style={styles.cardBasedOn}>{basedOnText}</Text> : null}
               </Animated.View>
             )}
           </View>
@@ -270,6 +280,11 @@ export function AnalysisScreen({ medications: _medications }: Props) {
     _supplementsCache ?? []
   );
   const [dynamicLoading, setDynamicLoading] = useState(_supplementsCache === null);
+  const medicationBasedOn = _medications.map((medication) => medication.displayName);
+  const staticSupplements = POPULAR_SUPPLEMENTS.map((item) => ({
+    ...item,
+    basedOn: medicationBasedOn
+  }));
 
   useEffect(() => {
     if (_supplementsCache !== null) return;
@@ -306,7 +321,7 @@ export function AnalysisScreen({ medications: _medications }: Props) {
           <SectionLabel icon={Sparkles} label="Recommended supplements" />
           <View style={styles.cardList}>
             {/* Static popular supplements */}
-            {POPULAR_SUPPLEMENTS.map((item, index) => (
+            {staticSupplements.map((item, index) => (
               <SupplementCard key={item.candidateName} item={item} index={index} isStatic />
             ))}
             {/* Dynamic: loading indicator or real cards */}
@@ -403,6 +418,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.medium,
     color: 'rgba(0,0,0,0.45)',
+    letterSpacing: -0.2,
+  },
+  cardBasedOn: {
+    marginTop: 6,
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    color: colors.accent,
     letterSpacing: -0.2,
   },
   cardReason: {

@@ -133,6 +133,7 @@ export type SupplementRecommendation = {
   label: string;
   rationale: string;
   sources: SupplementSource[];
+  basedOn?: string[];
 };
 
 export async function getUserSupplements(): Promise<SupplementRecommendation[]> {
