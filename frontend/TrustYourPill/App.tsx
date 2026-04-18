@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import {
   Image,
   Pressable,
@@ -7,15 +8,35 @@ import {
   Text,
   View,
 } from 'react-native';
+import {
+  Bell,
+  CalendarDays,
+  ClipboardList,
+  HeartPulse,
+  House,
+  LucideIcon,
+  Phone,
+  Plus,
+  ShieldAlert,
+  Sparkles,
+} from 'lucide-react-native';
+import {
+  Geist_400Regular,
+  Geist_500Medium,
+  Geist_600SemiBold,
+} from '@expo-google-fonts/geist';
 
 const avatarUri = 'https://www.figma.com/api/mcp/asset/31e6ebca-e0bc-4a62-af12-46698246312f';
 const notificationAvatarUri = 'https://www.figma.com/api/mcp/asset/2af3daff-6f80-4c40-8d78-ac45bb6e63e7';
 const paracetamolUri = 'https://www.figma.com/api/mcp/asset/97efda10-cf4f-423e-85cd-3c2d2addf400';
 const ibuprofenUri = 'https://www.figma.com/api/mcp/asset/888b5795-7ac3-4d88-bbb5-b9480d6cfcc0';
+const geistRegular = 'Geist_400Regular';
+const geistMedium = 'Geist_500Medium';
+const geistSemiBold = 'Geist_600SemiBold';
 
 type ActionCardProps = {
   label: string;
-  icon: string;
+  icon: LucideIcon;
   active?: boolean;
   compact?: boolean;
 };
@@ -27,7 +48,7 @@ type MedicationCardProps = {
   tint: string;
 };
 
-function ActionCard({ label, icon, active = false, compact = false }: ActionCardProps) {
+function ActionCard({ label, icon: Icon, active = false, compact = false }: ActionCardProps) {
   return (
     <Pressable
       style={[
@@ -37,7 +58,12 @@ function ActionCard({ label, icon, active = false, compact = false }: ActionCard
       ]}
     >
       <View style={[styles.actionIconCircle, active && styles.actionIconCircleActive]}>
-        <Text style={[styles.actionIcon, active && styles.actionIconActive]}>{icon}</Text>
+        <Icon
+          size={16}
+          strokeWidth={2}
+          style={styles.actionIcon}
+          color={active ? '#000000' : '#111111'}
+        />
       </View>
       {!compact ? <Text style={styles.actionLabel}>{label}</Text> : null}
     </Pressable>
@@ -56,19 +82,29 @@ function MedicationCard({ title, subtitle, imageUri, tint }: MedicationCardProps
   );
 }
 
-function NavIcon({ label, active = false }: { label: string; active?: boolean }) {
+function NavIcon({ icon: Icon, active = false }: { icon: LucideIcon; active?: boolean }) {
   if (active) {
     return (
       <View style={styles.plusButton}>
-        <Text style={styles.plusGlyph}>+</Text>
+        <Plus color="#FFFFFF" size={28} strokeWidth={2.2} />
       </View>
     );
   }
 
-  return <Text style={styles.navIcon}>{label}</Text>;
+  return <Icon size={23} strokeWidth={2.1} color="#111111" style={styles.navIcon} />;
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -84,7 +120,7 @@ export default function App() {
             </View>
             <View style={styles.notificationButton}>
               <Image source={{ uri: notificationAvatarUri }} style={styles.notificationBackdrop} />
-              <Text style={styles.notificationGlyph}>◠</Text>
+              <Bell color="#000000" size={18} strokeWidth={2.1} />
             </View>
           </View>
 
@@ -97,9 +133,9 @@ export default function App() {
           <Text style={styles.headline}>Feeling Today?</Text>
 
           <View style={styles.actionsRow}>
-            <ActionCard label="Daily Checkup" icon="♡" active />
-            <ActionCard label="Appointments" icon="⊞" />
-            <ActionCard label="" icon="☎" active compact />
+            <ActionCard label="Daily Checkup" icon={HeartPulse} active />
+            <ActionCard label="Appointments" icon={CalendarDays} />
+            <ActionCard label="" icon={Phone} active compact />
           </View>
         </View>
 
@@ -120,11 +156,11 @@ export default function App() {
 
         <View style={styles.bottomWrap}>
           <View style={styles.bottomBar}>
-            <NavIcon label="⌂" />
-            <NavIcon label="⧉" />
-            <NavIcon label="" active />
-            <NavIcon label="∿" />
-            <NavIcon label="⚠" />
+            <NavIcon icon={House} />
+            <NavIcon icon={ClipboardList} />
+            <NavIcon icon={Plus} active />
+            <NavIcon icon={Sparkles} />
+            <NavIcon icon={ShieldAlert} />
           </View>
         </View>
       </View>
@@ -170,13 +206,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.27,
     color: '#000000',
     marginBottom: 3,
+    fontFamily: geistRegular,
   },
   name: {
     fontSize: 16,
     lineHeight: 17,
     letterSpacing: -0.48,
     color: '#000000',
-    fontWeight: '600',
+    fontFamily: geistSemiBold,
   },
   notificationButton: {
     width: 40,
@@ -189,13 +226,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-  },
-  notificationGlyph: {
-    fontSize: 20,
-    lineHeight: 20,
-    color: '#000000',
-    transform: [{ rotate: '180deg' }],
-    marginTop: 1,
   },
   statusRow: {
     flexDirection: 'row',
@@ -218,14 +248,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 24,
     letterSpacing: -0.39,
-    fontWeight: '500',
+    fontFamily: geistMedium,
   },
   headline: {
     fontSize: 41,
     lineHeight: 42,
     letterSpacing: -1.23,
     color: '#000000',
-    fontWeight: '500',
+    fontFamily: geistMedium,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -268,19 +298,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   actionIcon: {
-    fontSize: 14,
-    lineHeight: 14,
-    color: '#000000',
-  },
-  actionIconActive: {
-    color: '#000000',
+    opacity: 0.96,
   },
   actionLabel: {
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: -0.36,
     color: '#000000',
-    fontWeight: '500',
+    fontFamily: geistMedium,
   },
   content: {
     flex: 1,
@@ -306,14 +331,14 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: -0.48,
     color: '#000000',
-    fontWeight: '500',
+    fontFamily: geistMedium,
     marginBottom: 2,
   },
   medicationSubtitle: {
     fontSize: 13,
     lineHeight: 19,
     color: 'rgba(0,0,0,0.75)',
-    fontWeight: '500',
+    fontFamily: geistMedium,
   },
   medicationImage: {
     width: 96,
@@ -333,11 +358,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 31,
   },
   navIcon: {
-    fontSize: 28,
-    lineHeight: 28,
-    color: '#111111',
     width: 24,
-    textAlign: 'center',
   },
   plusButton: {
     width: 50,
@@ -346,12 +367,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#006BFF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  plusGlyph: {
-    color: '#FFFFFF',
-    fontSize: 38,
-    lineHeight: 38,
-    marginTop: -1,
-    fontWeight: '300',
   },
 });
