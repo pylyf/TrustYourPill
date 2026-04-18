@@ -1,5 +1,15 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { useEffect, useRef } from 'react';
+import {
+  Animated,
+  Easing,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
@@ -9,6 +19,7 @@ import {
   HeartPulse,
   LucideIcon,
   Phone,
+  Target,
 } from 'lucide-react-native';
 import { colors, fonts, gradients } from '../theme';
 
@@ -16,41 +27,104 @@ const avatarUri = 'https://www.figma.com/api/mcp/asset/31e6ebca-e0bc-4a62-af12-4
 const paracetamolUri = 'https://www.figma.com/api/mcp/asset/97efda10-cf4f-423e-85cd-3c2d2addf400';
 const ibuprofenUri = 'https://www.figma.com/api/mcp/asset/888b5795-7ac3-4d88-bbb5-b9480d6cfcc0';
 
-function AdherenceRing({ percent, size = 72 }: { percent: number; size?: number }) {
-  const stroke = 6;
-  const r = (size - stroke) / 2;
+/** Animated half-ring from Simon (2eff546469d75fa9f552769b9459728cc16d6486). */
+function AdherenceHalfRing({
+  percent,
+  size = 120,
+  textColor = '#000',
+  gradientId = 'homeAdherenceArcGrad',
+}: {
+  percent: number;
+  size?: number;
+  textColor?: string;
+  gradientId?: string;
+}) {
+  const stroke = 11;
+  const r = (size - stroke * 2) / 2;
   const cx = size / 2;
-  const cy = size / 2;
-  const circumference = 2 * Math.PI * r;
-  const filled = circumference * (percent / 100);
-  const gap = circumference - filled;
+  const startX = cx - r;
+  const startY = cx;
+  const endX = cx + r;
+  const endY = cx;
+  const viewH = cx + stroke / 2 + 6;
+  const halfCirc = Math.PI * r;
+
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: percent / 100,
+      duration: 1100,
+      delay: 300,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [percent]);
+
+  const animatedDash = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [`0 ${halfCirc}`, `${halfCirc} ${halfCirc}`],
+  });
+
+  const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+  const trackStroke =
+    textColor === '#000000' || textColor === '#000'
+      ? 'rgba(0,0,0,0.06)'
+      : 'rgba(255,255,255,0.1)';
+  const subColor =
+    textColor === '#000000' || textColor === '#000'
+      ? 'rgba(0,0,0,0.5)'
+      : 'rgba(255,255,255,0.6)';
 
   return (
-    <View style={{ width: size, height: size }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+    <View style={{ width: size, height: viewH }}>
+      <Svg width={size} height={viewH} style={{ position: 'absolute', top: 0, left: 0 }}>
         <Defs>
-          <SvgLinearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#B44FD6" stopOpacity="1" />
-            <Stop offset="100%" stopColor="#5C45E2" stopOpacity="1" />
+          <SvgLinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor="#EF4444" stopOpacity="1" />
+            <Stop offset="50%" stopColor="#F97316" stopOpacity="1" />
+            <Stop offset="100%" stopColor="#22C55E" stopOpacity="1" />
           </SvgLinearGradient>
         </Defs>
-        <Circle cx={cx} cy={cy} r={r} stroke="rgba(0,0,0,0.18)" strokeWidth={stroke} fill="none" />
-        <Circle
-          cx={cx} cy={cy} r={r}
-          stroke="url(#ringGrad)"
+        <Path
+          d={`M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}`}
+          stroke={trackStroke}
           strokeWidth={stroke}
           fill="none"
-          strokeDasharray={`${filled} ${gap}`}
           strokeLinecap="round"
-          rotation={-90}
-          origin={`${cx}, ${cy}`}
+        />
+        <AnimatedPath
+          d={`M ${startX} ${startY} A ${r} ${r} 0 0 1 ${endX} ${endY}`}
+          stroke={`url(#${gradientId})`}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={animatedDash}
         />
       </Svg>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 15, fontFamily: fonts.semiBold, color: '#003d28', letterSpacing: -0.4, lineHeight: 16 }}>
+      <View style={{ position: 'absolute', bottom: 4, left: 0, right: 0, alignItems: 'center' }}>
+        <Text
+          style={{
+            fontSize: 22,
+            fontFamily: fonts.semiBold,
+            color: textColor,
+            letterSpacing: -1,
+            lineHeight: 24,
+          }}
+        >
           {percent}%
         </Text>
-        <Text style={{ fontSize: 8, fontFamily: fonts.medium, color: 'rgba(0,0,0,0.6)', letterSpacing: 0.3, textTransform: 'uppercase', marginTop: 1 }}>
+        <Text
+          style={{
+            fontSize: 9,
+            fontFamily: fonts.medium,
+            color: subColor,
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
+            marginTop: 1,
+          }}
+        >
           done
         </Text>
       </View>
@@ -136,20 +210,29 @@ export function HomeScreen({ onOpenCheckup }: { onOpenCheckup: () => void }) {
       </View>
 
       <LinearGradient
-        colors={gradients.adherence as unknown as readonly [string, string]}
+        colors={['#FFFFFF', '#F9FAFB']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.adherenceCard}
+        style={[styles.adherenceCard, styles.adherenceCardLight]}
       >
-        <Text style={styles.cardLabel}>Today's adherence</Text>
-        <View style={styles.adherenceRow}>
-          <View>
-            <Text style={styles.adherenceValue}>
-              2<Text style={styles.adherenceUnit}> of 4</Text>
+        <View style={styles.adherenceContentLight}>
+          <View style={styles.adherenceTextCol}>
+            <View style={styles.adherenceHeaderLight}>
+              <View style={styles.adherenceIconWrap}>
+                <Target color="#111827" size={14} strokeWidth={3} />
+              </View>
+              <Text style={styles.adherenceLabelLight}>Today's Progress</Text>
+            </View>
+
+            <Text style={styles.adherenceValueLight}>
+              2<Text style={styles.adherenceUnitLight}>/4</Text>
             </Text>
-            <Text style={styles.cardMeta}>pills taken</Text>
+            <Text style={styles.adherenceSubLight}>pills taken</Text>
           </View>
-          <AdherenceRing percent={50} size={72} />
+
+          <View style={styles.adherenceRingWrap}>
+            <AdherenceHalfRing percent={50} size={110} textColor="#000000" />
+          </View>
         </View>
       </LinearGradient>
 
@@ -319,18 +402,64 @@ const styles = StyleSheet.create({
     fontSize: 12, color: colors.meta, fontFamily: fonts.medium,
     letterSpacing: -0.2, marginTop: 2,
   },
-  adherenceCard: { borderRadius: 22, padding: 20, marginHorizontal: 28 },
-  adherenceRow: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    justifyContent: 'space-between', marginTop: 18,
+  adherenceCard: { borderRadius: 22, marginHorizontal: 28 },
+  adherenceCardLight: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    paddingHorizontal: 24,
+    paddingVertical: 22,
   },
-  adherenceValue: {
-    fontSize: 40, lineHeight: 42, color: '#000',
-    fontFamily: fonts.semiBold, letterSpacing: -1.3,
+  adherenceContentLight: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
   },
-  adherenceUnit: {
-    fontSize: 20, color: 'rgba(0,0,0,0.6)',
-    fontFamily: fonts.medium, letterSpacing: -0.4,
+  adherenceTextCol: { flex: 1, paddingBottom: 4 },
+  adherenceHeaderLight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  adherenceIconWrap: {
+    backgroundColor: '#F3F4F6',
+    padding: 5,
+    borderRadius: 8,
+  },
+  adherenceLabelLight: {
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#4B5563',
+    fontFamily: fonts.semiBold,
+    letterSpacing: -0.2,
+  },
+  adherenceValueLight: {
+    fontSize: 36,
+    lineHeight: 38,
+    color: '#111827',
+    fontFamily: fonts.semiBold,
+    letterSpacing: -1.2,
+  },
+  adherenceUnitLight: {
+    fontSize: 22,
+    color: '#6B7280',
+    fontFamily: fonts.medium,
+    letterSpacing: -0.4,
+  },
+  adherenceSubLight: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontFamily: fonts.medium,
+    letterSpacing: -0.2,
+    marginTop: 4,
+  },
+  adherenceRingWrap: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   row: { flexDirection: 'row', gap: 12, paddingHorizontal: 28 },
   gridCard: { flex: 1, borderRadius: 22, padding: 16 },
