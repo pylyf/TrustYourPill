@@ -189,6 +189,7 @@ export default function App() {
       <View style={styles.screen}>
         <AnimatedScreen visible={tab === 'home'}>
           <HomeScreen
+            medications={userMedications}
             onOpenCheckup={openCheckup}
             onOpenEmergency={() => setIsEmergencyDrawerVisible(true)}
             onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)}
