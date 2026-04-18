@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   BookOpen,
@@ -7,7 +7,6 @@ import {
   Coffee,
   Info,
   Moon,
-  Pill as PillIcon,
   Plus,
   Sun,
   Sunset,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react-native';
 import { colors, fonts, gradients, type GradientKey } from '../theme';
 import type { UserMedication } from '../lib/api';
+import { getPillImage } from '../lib/pillImage';
 import { MedicationDetailModal } from '../components/MedicationDetailModal';
 
 // -- slot definitions ---------------------------------------------------------
@@ -262,7 +262,7 @@ function DoseCard({
         <View style={[styles.doseIconWrap, taken && styles.doseIconWrapTaken]}>
           {taken
             ? <Check size={18} strokeWidth={2.4} color={colors.success} />
-            : <PillIcon size={18} strokeWidth={2.2} color={colors.dark} />}
+            : <Image source={getPillImage(med)} style={styles.doseImage} resizeMode="contain" />}
         </View>
         <View style={styles.doseInfo}>
           <Text style={[styles.doseName, taken && styles.doseNameTaken]} numberOfLines={1}>{med.displayName}</Text>
@@ -350,6 +350,7 @@ const styles = StyleSheet.create({
   doseCardTaken: { opacity: 0.72 },
   doseIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
   doseIconWrapTaken: { backgroundColor: 'rgba(38,184,30,0.12)' },
+  doseImage: { width: 26, height: 26 },
   doseInfo: { flex: 1 },
   doseName: { fontSize: 15, color: '#000', fontFamily: fonts.semiBold, letterSpacing: -0.3 },
   doseNameTaken: { textDecorationLine: 'line-through', color: 'rgba(0,0,0,0.4)' },
