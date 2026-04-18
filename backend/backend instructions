@@ -1,0 +1,1006 @@
+# Backend Instructions (Expanded)
+
+## 1. Purpose
+
+Build a hackathon-ready backend for a future React Expo app that helps users check a candidate medication against the medications they already take.
+
+The backend must:
+
+- accept a candidate medication and a user's current medications
+- normalize medication names with RxNav / RxNorm
+- fetch official FDA label evidence from openFDA, with DailyMed as fallback
+- use an AI model only to summarize grounded evidence into clear user-facing language
+- never claim medical clearance or replace pharmacist / doctor review
+
+This backend should be built for reliability first:
+
+- readable code
+- componentized design
+- traceable logs
+- debuggable failures
+- clear data provenance
+- continuously updated backend docs
+
+This is a hackathon project, so the backend should be  structured well enough that bugs can be traced and fixed fast.
+
+## 2. Product Framing
+
+Working product position:
+
+`Label-grounded medication awareness assistant and a clinical interaction checker`
+
+
+The response should help the user understand:
+
+- whether official label evidence raises concern
+- whether the concern is explicit or general
+- what evidence triggered the warning
+- what to ask a clinician or pharmacist next
+
+## 3. Non-Negotiable Constraints
+
+### 3.1 Agentic behavior is required
+
+The backend must be agentic.
+
+That means the system should not just do a dumb pass-through API lookup. It should orchestrate a multi-step evidence pipeline:
+
+1. understand the medication input
+2. normalize it with RxNav
+3. fetch label evidence from official sources
+4. compare the candidate medication against the user's existing medications
+5. classify the evidence into structured findings
+6. call an AI model only after evidence is collected
+7. produce a grounded, formatted explanation
+
+This can be implemented as:
+
+- a single orchestrator agent
+- a tool-using workflow
+- an MCP-style tool graph
+- a service orchestrator that behaves like an agent
+
+For hackathon speed, the recommended pattern is:
+
+- one orchestration service acting as the "agent"
+- several narrow components/tools underneath it
+
+### 3.2 RxNav interaction API cannot be used for DDI decisions
+
+RxNav's public drug-drug interaction feature was discontinued on **January 2, 2024**.
+
+Therefore:
+
+- do not use RxNav as the source of truth for interaction decisions
+- use RxNav only for search, normalization, and RxCUI resolution
+
+Source:
+
+- [RxNav FAQ](https://lhncbc.nlm.nih.gov/RxNav/information/FAQs.html)
+
+### 3.3 AI is summarizer only
+
+AI must not invent medical facts.
+
+AI may only:
+
+- summarize structured evidence already retrieved
+- rewrite technical label text into plain language
+- help format the output cleanly
+- produce a user-friendly explanation and next-step questions
+- produce structured side-effect signals and supportive-care ideas for hackathon use
+
+AI must not:
+
+- infer interactions that are not evidenced
+- say a medication is safe
+- override missing or weak evidence
+- present itself as clinical authority
+
+## 4. Core MVP User Flows
+
+### 4.1 Search medication
+
+User enters text (medication name).
+
+Backend:
+
+- calls RxNav approximate search
+- returns top normalized candidates
+- includes:
+  - `displayName`
+  - `rxcui`
+  - confidence / score
+  - source metadata
+
+### 4.2 Add medication
+
+User selects a normalized candidate.
+
+Backend:
+
+- stores selected medication in Supabase
+- preserves original user input and chosen normalized record
+- avoids silently remapping the user's selection later
+
+### 4.3 Check candidate against current meds
+
+Backend:
+
+1. normalizes candidate medication
+2. loads user's current normalized medications
+3. fetches evidence for candidate and current meds
+4. scans evidence for explicit mentions, class-level warnings, and label caution signals
+5. produces structured findings
+6. calls AI summarizer with only grounded evidence
+7. returns a structured result with rationale, summary, and disclaimer
+
+### 4.4 View medication profile
+
+Backend returns:
+
+- normalization data
+- warning sections
+- contraindications
+- adverse reactions
+- interaction-related sections
+- provenance showing which upstream source supplied the evidence
+
+### 4.5 Optional stretch flows
+
+If time allows:
+
+- medication / pill photo scanning using OpenAI vision
+- daily chat-based medication check-in
+- voice-driven check-in or medication capture
+
+These are stretch features, not core MVP blockers.
+
+## 5. Recommended Backend Stack
+
+Recommended stack for the hackathon:
+
+- runtime: `Node.js`
+- framework: `Next.js API routes`, `Express`, or `Fastify`
+- language: `TypeScript`
+- database: `Supabase Postgres`
+- auth: Supabase Auth if user auth is needed
+- cache: Supabase tables first, in-memory cache second if helpful
+- AI: OpenAI API
+- logging: structured JSON logs
+
+If starting from scratch, `Fastify + TypeScript + Supabase` is a strong option because it is fast, simple, and readable.
+
+## 6. Design Principles
+
+### 6.1 Build in components
+
+The codebase should be componentized into small services with clear responsibilities. Avoid one massive controller file.
+
+### 6.2 Prioritize readability
+
+At hackathon speed, readable code beats clever code.
+
+Every major step should be obvious from filenames, service boundaries, and logs.
+
+### 6.3 Prioritize observability
+
+Every external call and decision branch should be traceable.
+
+We need to know:
+
+- what user input came in
+- how it was normalized
+- which upstream APIs were called
+- which evidence sections were found
+- why a finding was classified a certain way
+- what was sent to AI
+- what AI returned
+
+### 6.4 Preserve provenance
+
+Every finding should carry source provenance:
+
+- source system
+- source section
+- matching medication
+- excerpt
+- fetch timestamp
+
+### 6.5 Fail safely
+
+When evidence is weak or incomplete:
+
+- say so clearly
+- never escalate to a fake confidence level
+- never say "safe to take"
+
+### 6.6 Keep docs current
+
+The backend docs must be treated as part of the implementation, not as cleanup work for later.
+
+Whenever an endpoint, payload shape, storage contract, or feature behavior changes, update the docs in the same pass.
+
+Keep these files current:
+
+- `backend instructions`
+- `README.md`
+- `docs/api.md`
+- `TODO.md`
+
+Each implemented endpoint should be documented with:
+
+- method
+- path
+- purpose
+- request shape
+- response shape
+- current implementation status
+- known gaps or TODOs
+
+## 7. Suggested Project Structure
+
+Use a structure like this:
+
+```text
+src/
+  app/
+    api/
+      medications/
+        search/route.ts
+        profile/route.ts
+        check/route.ts
+      users/
+        [id]/
+          medications/route.ts
+          medications/[medId]/route.ts
+  components/
+    agents/
+      medication-check-agent.ts
+    services/
+      medication-search.service.ts
+      medication-normalization.service.ts
+      medication-profile.service.ts
+      medication-check.service.ts
+      ai-summary.service.ts
+    integrations/
+      rxnav.client.ts
+      openfda.client.ts
+      dailymed.client.ts
+      openai.client.ts
+      supabase.client.ts
+    parsing/
+      label-section.parser.ts
+      finding-classifier.ts
+      medication-name-matcher.ts
+    storage/
+      medication.repository.ts
+      evidence-cache.repository.ts
+      check-result.repository.ts
+    schemas/
+      medication.schema.ts
+      evidence.schema.ts
+      check.schema.ts
+    utils/
+      logger.ts
+      trace.ts
+      retry.ts
+      circuit-breaker.ts
+      time.ts
+      redact.ts
+      excerpts.ts
+    config/
+      env.ts
+      constants.ts
+```
+
+Notes:
+
+- keep external APIs isolated in `integrations/`
+- keep orchestration logic in `agents/` or `services/`
+- keep parsing and classification logic independent and testable
+- keep Supabase access in repositories
+
+## 8. Main Components
+
+### 8.1 Medication Check Agent
+
+This is the main orchestrator.
+
+Responsibilities:
+
+- receive a candidate medication and current medications
+- call normalization
+- fetch evidence
+- compare medications
+- classify findings
+- call AI summarizer
+- build the final response
+
+This is the main "agentic" unit of the backend.
+
+It should behave like a workflow engine with explicit steps and logs.
+
+### 8.2 Medication Normalization Service
+
+Responsibilities:
+
+- normalize free-text medication names
+- call RxNav endpoints
+- return user-facing candidates and internal normalized identifiers
+
+Rules:
+
+- first try RxNav normalized search
+- if ambiguous, use Prescribable approximate search
+- prefer active RxNorm concepts
+- persist:
+  - `input`
+  - `normalizedName`
+  - `rxcui`
+  - `source`
+  - search score
+
+### 8.3 Evidence Retrieval Service
+
+Responsibilities:
+
+- retrieve label evidence from openFDA
+- fallback to DailyMed when openFDA is thin or missing
+- normalize payloads into a common internal structure
+
+Query priority for openFDA:
+
+1. `openfda.rxcui`
+2. `openfda.generic_name`
+3. `openfda.substance_name`
+4. `openfda.brand_name`
+
+Extract these sections when present:
+
+- `boxed_warning`
+- `contraindications`
+- `drug_interactions`
+- `drug_and_or_laboratory_test_interactions`
+- `warnings`
+- `ask_doctor_or_pharmacist`
+- `adverse_reactions`
+
+### 8.4 Finding Classifier
+
+Responsibilities:
+
+- compare evidence text against medication names, ingredients, and classes
+- classify the outcome into structured finding types
+
+Finding types:
+
+- `explicit_label_interaction`
+- `general_contraindication`
+- `general_warning`
+- `adverse_effect_context`
+- `no_direct_label_match`
+
+### 8.5 AI Summary Service
+
+Responsibilities:
+
+- take only structured evidence and normalized medication data
+- produce grounded, user-friendly explanation fields
+- enforce disclaimer language
+
+Required outputs:
+
+- `headline`
+- `plain_language_summary`
+- `what_triggered_this`
+- `questions_for_clinician`
+- `confidence_note`
+- structured `sideEffectSignals`
+- structured `supportiveCareIdeas`
+
+Required line in every answer:
+
+- `This is based on FDA label information and is not medical advice.`
+
+### 8.6 Storage Layer
+
+Responsibilities:
+
+- save user medications
+- cache normalization and evidence results
+- store prior checks for auditability and demos
+
+### 8.7 Observability Layer
+
+Responsibilities:
+
+- attach request IDs / trace IDs
+- emit structured logs
+- capture upstream latency
+- record cache hit / miss
+- log fallback usage
+- log AI prompt provenance without leaking private data
+
+## 9. API Contract
+
+### 9.1 Search medication
+
+`GET /api/medications/search?q=`
+
+Purpose:
+
+- RxNav-backed search / autocomplete
+
+Response should include:
+
+- input query
+- normalized candidates
+- `rxcui`
+- display name
+- score / confidence
+
+### 9.2 Medication profile
+
+`GET /api/medications/profile?name=`
+
+Purpose:
+
+- normalize one medication
+- fetch label evidence
+- return medication profile data
+
+### 9.3 Check medication
+
+`POST /api/medications/check`
+
+Purpose:
+
+- evaluate a candidate medication against a user's current medications
+
+Request:
+
+```json
+{
+  "candidateMedication": "ibuprofen",
+  "currentMedications": ["warfarin", "aspirin"]
+}
+```
+
+Response shape:
+
+```json
+{
+  "candidateMedication": {
+    "input": "ibuprofen",
+    "normalizedName": "Ibuprofen",
+    "rxcui": "5640"
+  },
+  "currentMedications": [
+    {
+      "input": "warfarin",
+      "normalizedName": "Warfarin Sodium",
+      "rxcui": "855288"
+    }
+  ],
+  "evidence": [
+    {
+      "type": "explicit_label_interaction",
+      "source": "openfda",
+      "section": "drug_interactions",
+      "medication": "warfarin",
+      "excerpt": "Drugs that can increase the risk of bleeding include ... ibuprofen ..."
+    }
+  ],
+  "summary": {
+    "status": "review_before_use",
+    "headline": "This combination should be reviewed before use.",
+    "explanation": "The warfarin label explicitly lists ibuprofen among drugs that can increase bleeding risk."
+  },
+  "aiSummary": {
+    "headline": "This combination should be reviewed before use.",
+    "plainLanguageSummary": "The warfarin label explicitly lists ibuprofen among drugs that can increase bleeding risk. This is based on FDA label information and is not medical advice.",
+    "whatTriggeredThis": "warfarin contains drug interactions evidence involving ibuprofen.",
+    "questionsForClinician": [
+      "Should ibuprofen be avoided or adjusted with warfarin, aspirin?",
+      "Are there safer alternatives or monitoring steps to consider?"
+    ],
+    "confidenceNote": "This summary is grounded in retrieved label evidence, but it does not replace pharmacist or clinician review.",
+    "generatedBy": "openai"
+  },
+  "sideEffectSignals": [
+    {
+      "domain": "bleeding_risk",
+      "severity": "high",
+      "sourceSections": ["warfarin:drug_interactions", "warfarin:boxed_warning"],
+      "explanation": "The retrieved label evidence indicates bleeding-related caution."
+    }
+  ],
+  "supportiveCareIdeas": [
+    {
+      "type": "supplement",
+      "label": "Consider gastroprotection (ask clinician/pharmacist)",
+      "rationale": "This is a hackathon suggestion derived from the AI summary layer and must be reviewed.",
+      "candidateName": "proton pump inhibitor (ask clinician)",
+      "requiresReview": true,
+      "shouldCheckInteractions": true
+    }
+  ],
+  "disclaimer": "Prototype only. Not medical advice."
+}
+```
+
+Implementation note:
+
+- if `OPENAI_API_KEY` is unavailable or the OpenAI call fails, the backend must still return `aiSummary` using a deterministic fallback
+- if the AI suggests a supplement candidate, it must be surfaced as review-only and marked for interaction checking
+- the backend currently requires Supabase runtime configuration for medication list storage, evidence caching, and persisted check results
+
+### 9.4 User medication list
+
+`GET /api/users/:id/medications`
+
+Purpose:
+
+- retrieve stored medications for a user
+
+`POST /api/users/:id/medications`
+
+Purpose:
+
+- add a medication to the user's saved list
+
+`DELETE /api/users/:id/medications/:medId`
+
+Purpose:
+
+- remove a medication from the user's saved list
+
+## 10. Normalization Rules
+
+- first try RxNav normalized search
+- if needed, use Prescribable approximate search
+- prefer active RxNorm concepts
+- keep original user input
+- preserve user-selected normalized concept
+- never silently overwrite a previously chosen medication without a user-facing reason
+
+Recommended RxNav endpoints:
+
+- `GET /REST/rxcui.json?name=<name>&search=2|9`
+- `GET /REST/Prescribe/approximateTerm.json?term=<term>&maxEntries=<n>`
+- `GET /REST/rxcui/<rxcui>/properties.json`
+
+Docs:
+
+- [RxNorm API](https://lhncbc.nlm.nih.gov/RxNav/APIs/RxNormAPIs.html)
+- [findRxcuiByString](https://lhncbc.nlm.nih.gov/RxNav/APIs/api-RxNorm.findRxcuiByString.html)
+- [Prescribable approximateTerm](https://lhncbc.nlm.nih.gov/RxNav/APIs/api-Prescribable.getApproximateMatch.html)
+
+## 11. Evidence Sources
+
+### 11.1 openFDA drug label
+
+Base endpoint:
+
+- `https://api.fda.gov/drug/label.json`
+
+Important fields:
+
+- `boxed_warning`
+- `warnings`
+- `contraindications`
+- `drug_interactions`
+- `drug_and_or_laboratory_test_interactions`
+- `adverse_reactions`
+- `ask_doctor_or_pharmacist`
+- `openfda.generic_name`
+- `openfda.brand_name`
+- `openfda.substance_name`
+- `openfda.rxcui`
+- `openfda.product_type`
+- `openfda.route`
+- `openfda.spl_id`
+- `openfda.spl_set_id`
+
+Docs:
+
+- [Drug Label Overview](https://open.fda.gov/apis/drug/label/)
+- [How to use](https://open.fda.gov/apis/drug/label/how-to-use-the-endpoint/)
+- [Searchable fields](https://open.fda.gov/apis/drug/label/searchable-fields/)
+- [Understanding results](https://open.fda.gov/apis/drug/label/understanding-the-api-results/)
+
+### 11.2 DailyMed
+
+Purpose:
+
+- fallback label retrieval
+- SPL lookup by RxCUI
+
+Useful endpoint:
+
+- `/dailymed/services/v2/spls.json?rxcui=<rxcui>`
+
+Docs:
+
+- [DailyMed Web Services](https://dailymed.nlm.nih.gov/dailymed/webservices-help/v2/spls_api.cfm)
+
+## 12. Evidence Extraction Rules
+
+For each medication:
+
+1. query openFDA using the preferred field order
+2. extract relevant label sections
+3. trim and normalize whitespace
+4. store both:
+   - short excerpt for UI / AI
+   - full raw section text for traceability
+5. if openFDA has no strong result, fallback to DailyMed SPL lookup by `rxcui`
+
+Recommended parsed evidence shape:
+
+```json
+{
+  "source": "openfda",
+  "rxcui": "5640",
+  "splSetId": "example",
+  "sections": [
+    {
+      "name": "drug_interactions",
+      "excerpt": "Drugs that can increase bleeding risk include ibuprofen...",
+      "fullText": "Full upstream text here...",
+      "matchedTerms": ["ibuprofen"],
+      "fetchedAt": "2026-04-18T09:00:00.000Z"
+    }
+  ]
+}
+```
+
+## 13. Finding Types and Decision Logic
+
+### 13.1 Finding types
+
+- `explicit_label_interaction`
+  - one medication is directly named in another medication's `drug_interactions` text
+- `general_contraindication`
+  - contraindication or boxed warning implies strong caution without naming the paired medication directly
+- `general_warning`
+  - warning references classes or broad caution groups such as anticoagulants, NSAIDs, serotonergic agents
+- `adverse_effect_context`
+  - side-effect context relevant to explanation but not direct proof of interaction
+- `no_direct_label_match`
+  - no explicit or class-level signal found
+
+### 13.2 Decision statuses
+
+- `avoid_until_reviewed`
+  - explicit mention in `drug_interactions` or serious boxed warning language
+- `review_before_use`
+  - class-level warning, contraindication context, or strong general warning
+- `insufficient_evidence`
+  - incomplete evidence, weak evidence, or no direct label match
+
+Rule:
+
+- never return `safe_to_take`
+
+## 14. AI Prompt Contract
+
+System instruction should say:
+
+- summarize only from provided structured evidence
+- do not invent interactions
+- do not state or imply safety clearance
+- distinguish explicit interaction from general warning from missing evidence
+
+AI input fields:
+
+- normalized medications
+- finding types
+- source sections
+- short excerpts
+- user language / tone preference
+
+AI output fields:
+
+- `headline`
+- `plain_language_summary`
+- `what_triggered_this`
+- `questions_for_clinician`
+- `confidence_note`
+
+Required summary behaviors:
+
+- cite which evidence buckets were used
+- clearly distinguish:
+  - explicit interaction found
+  - general warning found
+  - no direct label match found
+
+Recommended guardrail:
+
+Run AI on structured JSON, not raw unbounded upstream payloads.
+
+## 15. Supabase Data Model
+
+Use Supabase as the default database.
+
+### 15.1 `user_medications`
+
+Fields:
+
+- `id`
+- `user_id`
+- `input_name`
+- `normalized_name`
+- `rxcui`
+- `source`
+- `search_score`
+- `created_at`
+
+### 15.2 `medication_evidence_cache`
+
+Fields:
+
+- `lookup_key`
+- `rxcui`
+- `source`
+- `raw_payload`
+- `parsed_evidence`
+- `fetched_at`
+- `expires_at`
+
+### 15.3 `check_results`
+
+Fields:
+
+- `id`
+- `user_id`
+- `candidate_rxcui`
+- `current_medication_rxcuis`
+- `findings`
+- `summary`
+- `created_at`
+
+### 15.4 Optional `medication_normalization_cache`
+
+Fields:
+
+- `lookup_key`
+- `input_name`
+- `normalized_name`
+- `rxcui`
+- `source`
+- `score`
+- `fetched_at`
+- `expires_at`
+
+## 16. Caching Rules
+
+- cache RxNav normalization for 30 days
+- cache openFDA / DailyMed evidence for 7 days
+- retain raw upstream payloads for debugging and demo explainability
+- support manual cache invalidation in case an upstream query strategy changes
+
+Recommended cache policy:
+
+- use database-backed cache first
+- optionally add in-memory short-lived cache for hot requests
+
+## 17. Reliability Rules
+
+All external calls must include:
+
+- timeout
+- retry with backoff
+- graceful fallback behavior
+- structured error logging
+
+### 17.1 openFDA
+
+Documented limits:
+
+- no key: `240 requests/minute`, `1,000/day`
+- with key: `240 requests/minute`, `120,000/day`
+
+Source:
+
+- [openFDA authentication](https://open.fda.gov/apis/authentication/)
+
+### 17.2 RxNav
+
+RxNav may return `429`, and exact public limits are not fixed clearly in docs.
+
+Therefore:
+
+- retry with exponential backoff
+- log upstream throttling separately
+- avoid bursty duplicate requests by caching aggressively
+
+### 17.3 Circuit breaker guidance
+
+Implement lightweight circuit breaker behavior around:
+
+- RxNav
+- openFDA
+- DailyMed
+- OpenAI
+
+When a dependency is unstable:
+
+- fail fast
+- return partial but honest result if possible
+- surface `insufficient_evidence` instead of fabricating certainty
+
+## 18. Observability and Debugging Requirements
+
+This is mandatory.
+
+Every request should have:
+
+- `requestId`
+- `traceId`
+- `userId` if available
+- endpoint name
+- execution duration
+
+Each external call should log:
+
+- provider name
+- request target
+- lookup key
+- latency
+- retry count
+- status code
+- cache hit / miss
+
+Each medication check should log:
+
+- candidate input
+- normalized candidate result
+- normalized current meds
+- evidence sources used
+- finding types produced
+- final status
+- whether AI summary succeeded
+
+Do not log:
+
+- raw secrets
+- full user identifiers if avoidable
+- unredacted sensitive payloads in production-like environments
+
+Recommended logging style:
+
+- JSON logs
+- one event per meaningful step
+- stable field names
+
+## 19. Security Rules
+
+- keep all third-party API calls server-side
+- never expose AI or FDA keys in Expo client code
+- redact user identifiers from AI prompts unless required
+- store source provenance for every finding
+- keep prompts minimal and evidence-bound
+
+## 20. Optional Vision / Scan Feature
+
+If time allows, support medication or pill scanning from image using OpenAI vision.
+
+This should be a separate component, not mixed into the core check flow.
+
+Suggested flow:
+
+1. user uploads image
+2. backend sends image to vision model
+3. model proposes medication candidates or pill imprint text
+4. backend converts result into RxNav search terms
+5. user confirms the selected medication
+6. normal medication workflow continues
+
+Important rule:
+
+- image recognition should suggest candidates, not silently finalize them
+
+## 21. Optional Chat / Voice Check-In
+
+If there is extra time:
+
+- support daily text check-ins
+- support voice capture that turns into structured medication intents
+
+This should reuse the same normalization and evidence pipeline.
+
+Do not build a separate medication reasoning system for voice or chat.
+
+## 22. Apify Policy
+
+Apify is not part of the core architecture.
+
+It may be used only for:
+
+- optional content enrichment
+- optional scraping of non-authoritative presentation pages
+
+It must not be used as a primary medication safety source.
+
+Primary sources must remain:
+
+- RxNav / RxNorm for normalization
+- openFDA for official label evidence
+- DailyMed as label fallback
+
+## 23. Recommended Build Order
+
+### Phase 1: foundation
+
+- set up backend framework
+- set up Supabase
+- add env handling
+- add logger / trace utilities
+- add external API clients with retries and timeouts
+
+### Phase 2: medication normalization
+
+- build RxNav search endpoint
+- build normalization service
+- store selected user medications
+
+### Phase 3: evidence retrieval
+
+- build openFDA retrieval
+- parse label sections
+- add DailyMed fallback
+- persist evidence cache
+
+### Phase 4: check orchestration
+
+- build medication check agent
+- implement finding classifier
+- implement decision logic
+
+### Phase 5: AI summary
+
+- add OpenAI summarizer
+- constrain prompt to structured evidence
+- return final hackathon-friendly output
+
+### Phase 6: stretch goals
+
+- image scanning
+- chat / voice check-ins
+- richer UI-facing explanation formats
+
+## 24. Acceptance Criteria
+
+The backend is successful when:
+
+- user can search and add medications reliably
+- user can check a new medication against existing medications
+- every response includes source-backed rationale
+- explicit openFDA interaction text is surfaced clearly when present
+- incomplete evidence is clearly labeled as incomplete
+- no endpoint returns a fake "safe to take" result
+- logs are detailed enough to debug a failed demo in minutes
+
+## 25. Final Recommendation
+
+For the hackathon, keep the architecture simple:
+
+- one backend
+- one orchestration agent/service
+- small components underneath
+- Supabase for persistence and caching
+- OpenAI only for grounded summarization
+- strong logging everywhere
+
+The winning version of this backend is not the most clinically ambitious one.
+
+The winning version is the one that is:
+
+- explainable
+- reliable
+- fast enough for demo use
+- easy to debug live
+- honest about uncertainty
