@@ -179,6 +179,8 @@ function SymptomCard({
 export function SymptomsScreen({ medications }: { medications: UserMedication[] }) {
   const [selected, setSelected] = useState<Set<SymptomKey>>(new Set());
   const [checkInState, setCheckInState] = useState<'good' | 'notGood' | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [lastSubmittedSymptoms, setLastSubmittedSymptoms] = useState<SymptomKey[]>([]);
   const [otherSymptom, setOtherSymptom] = useState('');
   const [history, setHistory] = useState<SymptomLog[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -187,6 +189,8 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
   const ctaAnim = useRef(new Animated.Value(0)).current;
   const otherReveal = useRef(new Animated.Value(0)).current;
   const insightReveal = useRef(new Animated.Value(0)).current;
+  const savedScale = useRef(new Animated.Value(0)).current;
+  const savedOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     getSymptomLogs().then(setHistory).catch(() => {});
@@ -200,6 +204,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCheckInState('notGood');
     setHasRequestedInsights(false);
+    setLastSubmittedSymptoms([]);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -212,9 +217,11 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
   const otherFilled = otherSymptom.trim().length > 0;
   const canSubmit = feelingGood || (showingSymptoms && selected.size > 0 && (!otherSelected || otherFilled));
   const loggedCount = selected.size;
+  const insightSymptoms = hasRequestedInsights ? lastSubmittedSymptoms : [];
   const selectedEntries = SYMPTOMS.filter((item) => selected.has(item.key));
   const selectedLabels = selectedEntries.map((item) => item.label);
-  const showInsights = hasRequestedInsights && !feelingGood && selected.size > 0;
+  const insightLabels = SYMPTOMS.filter((item) => insightSymptoms.includes(item.key)).map((item) => item.label);
+  const showInsights = hasRequestedInsights && insightSymptoms.length > 0;
   const primarySummary = feelingGood
     ? 'You are logging a steady day.'
     : showingSymptoms && selected.size > 0
@@ -224,11 +231,11 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
         : 'Start with a quick check-in';
 
   const possibleSideEffects = useMemo(() => {
-    if (feelingGood || selected.size === 0) return [];
+    if (insightSymptoms.length === 0) return [];
     const results: { pill: string; symptom: string }[] = [];
     for (const med of medications) {
       const signals = med.analysis?.sideEffectSignals ?? [];
-      for (const symptomKey of Array.from(selected) as SymptomKey[]) {
+      for (const symptomKey of insightSymptoms) {
         if (symptomKey === 'other') continue;
         const domains = SYMPTOM_TO_DOMAINS[symptomKey];
         const matchedSignal = signals.find((sig) =>
@@ -243,30 +250,57 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
       }
     }
     return results;
-  }, [feelingGood, medications, selected]);
+  }, [insightSymptoms, medications]);
 
   async function handleSubmit() {
     if (!canSubmit || submitting) return;
-    if (!feelingGood && !hasRequestedInsights) {
-      setHasRequestedInsights(true);
-      return;
-    }
     setSubmitting(true);
+    const submittedSymptoms = Array.from(selected) as SymptomKey[];
     try {
       const log = await createSymptomLog({
-        symptoms: Array.from(selected),
+        symptoms: submittedSymptoms,
         otherText: otherSelected ? otherSymptom.trim() || null : null,
         feelingGood,
       });
       setHistory((prev) => [log, ...prev]);
+      setLastSubmittedSymptoms(feelingGood ? [] : submittedSymptoms);
+      setHasRequestedInsights(!feelingGood && submittedSymptoms.length > 0);
       setSelected(new Set());
       setCheckInState(null);
       setOtherSymptom('');
-      setHasRequestedInsights(false);
     } catch {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleGoodSubmit() {
+    if (submitting) return;
+    setSubmitting(true);
+    Animated.sequence([
+      Animated.spring(savedScale, { toValue: 1.2, useNativeDriver: true, damping: 8, stiffness: 260 }),
+      Animated.spring(savedScale, { toValue: 1,   useNativeDriver: true, damping: 12, stiffness: 200 }),
+    ]).start();
+    Animated.timing(savedOpacity, { toValue: 1, duration: 280, useNativeDriver: true }).start();
+    try {
+      const log = await createSymptomLog({ symptoms: [], otherText: null, feelingGood: true });
+      setHistory((prev) => [log, ...prev]);
+      setLastSubmittedSymptoms([]);
+      setHasRequestedInsights(false);
+    } catch {}
+    setSubmitting(false);
+    setSaved(true);
+  }
+
+  function resetForm() {
+    setSaved(false);
+    setCheckInState(null);
+    setSelected(new Set());
+    setLastSubmittedSymptoms([]);
+    setOtherSymptom('');
+    setHasRequestedInsights(false);
+    savedScale.setValue(0);
+    savedOpacity.setValue(0);
   }
 
   useEffect(() => {
@@ -354,42 +388,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
         </Text>
       </Animated.View>
 
-      <Animated.View style={[styles.heroCard, revealStyle(30, 70)]}>
-        <LinearGradient
-          colors={['#FFFFFF', '#F6F9FF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroGradient}
-        >
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroCopy}>
-              <Text style={styles.heroLabel}>Quick summary</Text>
-              <Text style={styles.heroTitle}>{primarySummary}</Text>
-            </View>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeValue}>{feelingGood ? 'Good' : showingSymptoms ? selected.size : '...'}</Text>
-              <Text style={styles.heroBadgeLabel}>{feelingGood ? 'state' : showingSymptoms ? 'picked' : 'step'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.heroStats}>
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>{medications.length}</Text>
-              <Text style={styles.heroStatLabel}>Active meds</Text>
-            </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>{history.length}</Text>
-              <Text style={styles.heroStatLabel}>Recent logs</Text>
-            </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>{showInsights ? possibleSideEffects.length : '—'}</Text>
-              <Text style={styles.heroStatLabel}>{showInsights ? 'Potential links' : 'Review after input'}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-      </Animated.View>
+      {/* Quick summary card commented out */}
 
       <Animated.View
         style={[
@@ -397,58 +396,21 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
           revealStyle(38, 110),
         ]}
       >
-        <View style={styles.modeSwitcher}>
-          <Pressable
-            onPress={() => {
-              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              setCheckInState('good');
-              setHasRequestedInsights(false);
-              setSelected(new Set());
-              setOtherSymptom('');
-            }}
-            style={[styles.modeOption, styles.modeOptionGood, feelingGood && styles.modeOptionGoodActive]}
-          >
-            <View style={[styles.modeIcon, feelingGood && styles.modeIconActive]}>
-              {feelingGood ? (
-                <Check size={18} strokeWidth={2.7} color={colors.white} />
-              ) : (
-                <Check size={18} strokeWidth={2.4} color="#1C6B3A" />
-              )}
-            </View>
-            <View style={styles.modeCopy}>
-              <Text style={[styles.modeTitle, feelingGood && styles.modeTitleActive]}>I’m okay</Text>
-              <Text style={[styles.modeMeta, feelingGood && styles.modeMetaActive]}>
-                Log a healthy day right away.
-              </Text>
-            </View>
-            <ChevronRight size={18} strokeWidth={2.3} color={feelingGood ? colors.white : colors.metaStrong} />
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-              setCheckInState('notGood');
-              setHasRequestedInsights(false);
-            }}
-            style={[styles.modeOption, styles.modeOptionAlert, showingSymptoms && styles.modeOptionAlertActive]}
-          >
-            <View style={[styles.modeIcon, showingSymptoms && styles.modeIconAlertActive]}>
-              <Activity size={18} strokeWidth={2.4} color={showingSymptoms ? colors.white : '#8A3A14'} />
-            </View>
-            <View style={styles.modeCopy}>
-              <Text style={[styles.modeTitle, showingSymptoms && styles.modeTitleActive]}>I’m not okay</Text>
-              <Text style={[styles.modeMeta, showingSymptoms && styles.modeMetaActive]}>
-                Show the symptom options.
-              </Text>
-            </View>
-            <ChevronRight size={18} strokeWidth={2.3} color={showingSymptoms ? colors.white : colors.metaStrong} />
-          </Pressable>
-        </View>
-      </Animated.View>
-
-      {showingSymptoms ? (
-        <>
-          <Animated.View style={[styles.sectionBlock, revealStyle(24, 140)]}>
+        {saved ? (
+          /* Saved state */
+          <View style={styles.savedState}>
+            <Animated.View style={[styles.savedCheck, { opacity: savedOpacity, transform: [{ scale: savedScale }] }]}>
+              <Check size={28} strokeWidth={2.7} color={colors.white} />
+            </Animated.View>
+            <Text style={styles.savedTitle}>Check-in saved!</Text>
+            <Text style={styles.savedMeta}>Logged as a healthy day.</Text>
+            <Pressable onPress={resetForm} style={styles.savedReset}>
+              <Text style={styles.savedResetText}>Log again</Text>
+            </Pressable>
+          </View>
+        ) : showingSymptoms ? (
+          /* Symptom heading replaces the two mode cards */
+          <View style={styles.modeSwitcher}>
             <View style={styles.sectionHeadingRow}>
               <View>
                 <Text style={styles.sectionEyebrow}>Symptoms</Text>
@@ -460,11 +422,47 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
                 </Text>
               </View>
             </View>
-            <Text style={styles.sectionBody}>
-              Pick all that apply. The cleaner the input, the easier it is to review what may be causing the change.
-            </Text>
-          </Animated.View>
+          </View>
+        ) : (
+          /* Initial choice */
+          <View style={styles.modeSwitcher}>
+            <Pressable
+              onPress={handleGoodSubmit}
+              style={[styles.modeOption, styles.modeOptionGood]}
+            >
+              <View style={styles.modeIcon}>
+                <Check size={18} strokeWidth={2.4} color="#1C6B3A" />
+              </View>
+              <View style={styles.modeCopy}>
+                <Text style={styles.modeTitle}>I’m okay</Text>
+                <Text style={styles.modeMeta}>Log a healthy day right away.</Text>
+              </View>
+              <ChevronRight size={18} strokeWidth={2.3} color={colors.metaStrong} />
+            </Pressable>
 
+            <Pressable
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setCheckInState('notGood');
+                setHasRequestedInsights(false);
+              }}
+              style={[styles.modeOption, styles.modeOptionAlert]}
+            >
+              <View style={styles.modeIcon}>
+                <Activity size={18} strokeWidth={2.4} color="#8A3A14" />
+              </View>
+              <View style={styles.modeCopy}>
+                <Text style={styles.modeTitle}>I’m not okay</Text>
+                <Text style={styles.modeMeta}>Show the symptom options.</Text>
+              </View>
+              <ChevronRight size={18} strokeWidth={2.3} color={colors.metaStrong} />
+            </Pressable>
+          </View>
+        )}
+      </Animated.View>
+
+      {showingSymptoms ? (
+        <>
           <View style={styles.symptomGrid}>
             {SYMPTOMS.map((item, index) => (
               <SymptomCard
@@ -510,7 +508,8 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
         </>
       ) : null}
 
-      {!showInsights && showingSymptoms ? (
+      {/* Step 1 / intakeCard commented out */}
+      {false && !showInsights && showingSymptoms ? (
         <Animated.View
           style={[
             styles.intakeCard,
@@ -607,7 +606,7 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
               <View style={styles.sideEffectCopy}>
                 <Text style={styles.sideEffectTitle}>Nothing obvious yet</Text>
                 <Text style={styles.noMatchBody}>
-                  {`No direct medication match found for ${selectedLabels.join(', ').toLowerCase()}.`}
+                  {`No direct medication match found for ${insightLabels.join(', ').toLowerCase()}.`}
                 </Text>
               </View>
             </LinearGradient>
@@ -622,51 +621,49 @@ export function SymptomsScreen({ medications }: { medications: UserMedication[] 
         </Animated.View>
       ) : null}
 
-      <Animated.View
-        style={[
-          revealStyle(26, 240),
-          {
-            opacity: Animated.add(
-              pageAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.35],
-              }),
-              ctaAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.5, 0.65],
-              })
-            ),
-            transform: [
-              {
-                translateY: pageAnim.interpolate({
+      {!saved && (canSubmit || submitting) ? (
+        <Animated.View
+          style={[
+            revealStyle(26, 240),
+            {
+              opacity: Animated.add(
+                pageAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [26, 0],
+                  outputRange: [0, 0.35],
                 }),
-              },
-              {
-                scale: ctaAnim.interpolate({
+                ctaAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0.985, 1],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <Pressable style={[styles.cta, (!canSubmit || submitting) && styles.ctaDisabled]} disabled={!canSubmit || submitting} onPress={handleSubmit}>
-          <Text style={styles.ctaText}>
-            {submitting
-              ? 'Saving...'
-              : feelingGood
-                ? 'Save healthy check-in'
-                : !hasRequestedInsights && loggedCount > 0
-                  ? 'Review possible causes'
-                  : loggedCount > 0
-                    ? `Save ${loggedCount} symptom${loggedCount === 1 ? '' : 's'}`
-                    : 'Choose how you feel to continue'}
-          </Text>
-        </Pressable>
-      </Animated.View>
+                  outputRange: [0.5, 0.65],
+                })
+              ),
+              transform: [
+                {
+                  translateY: pageAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [26, 0],
+                  }),
+                },
+                {
+                  scale: ctaAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.985, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Pressable style={[styles.cta, (!canSubmit || submitting) && styles.ctaDisabled]} disabled={!canSubmit || submitting} onPress={handleSubmit}>
+            <Text style={styles.ctaText}>
+              {submitting
+                ? 'Saving...'
+                : feelingGood
+                  ? 'Save healthy check-in'
+                  : `Save ${loggedCount} symptom${loggedCount === 1 ? '' : 's'}`}
+            </Text>
+          </Pressable>
+        </Animated.View>
+      ) : null}
 
       <Animated.View style={[styles.sectionBlock, revealStyle(22, 270)]}>
         <View style={styles.sectionHeadingRow}>
@@ -969,11 +966,12 @@ const styles = StyleSheet.create({
   symptomGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    columnGap: 12,
     rowGap: 12,
   },
   symptomCardWrap: {
-    width: '48.5%',
+    width: '48%',
   },
   symptomCard: {
     minHeight: 108,
@@ -1226,5 +1224,44 @@ const styles = StyleSheet.create({
     color: '#0E1726',
     fontFamily: fonts.semiBold,
     letterSpacing: -0.35,
+  },
+  savedState: {
+    alignItems: 'center' as const,
+    paddingVertical: 24,
+    gap: 8,
+  },
+  savedCheck: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#26B81E',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginBottom: 4,
+  },
+  savedTitle: {
+    fontSize: 18,
+    fontFamily: fonts.semiBold,
+    color: colors.dark,
+    letterSpacing: -0.4,
+  },
+  savedMeta: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.metaStrong,
+    letterSpacing: -0.2,
+  },
+  savedReset: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,107,255,0.08)',
+  },
+  savedResetText: {
+    fontSize: 14,
+    fontFamily: fonts.medium,
+    color: colors.accent,
+    letterSpacing: -0.2,
   },
 });
