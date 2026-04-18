@@ -6,19 +6,34 @@ import { createTraceContext, getTraceContextFromRequest } from "./components/uti
 
 async function bootstrap() {
   const app = Fastify({
-    logger: false
+    logger: false,
+    bodyLimit: 1073741824 // 1 GB – no effective limit for hackathon
   });
 
   const logger = createLogger("server");
+  const defaultCorsOrigin = "http://localhost:8081";
 
   app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     const traceContext = createTraceContext(request.id, request.headers["x-trace-id"]);
+    const requestOrigin = typeof request.headers.origin === "string" ? request.headers.origin : null;
+    const allowedOrigin = env.CORS_ORIGIN ?? requestOrigin ?? defaultCorsOrigin;
 
     request.traceContext = traceContext;
     request.startedAt = Date.now();
 
+    reply.header("access-control-allow-origin", allowedOrigin);
+    reply.header("vary", "Origin");
+    reply.header("access-control-allow-methods", "GET,POST,DELETE,OPTIONS");
+    reply.header("access-control-allow-headers", "Content-Type, Authorization, X-Trace-Id");
+    reply.header("access-control-expose-headers", "x-request-id, x-trace-id");
+
     reply.header("x-request-id", traceContext.requestId);
     reply.header("x-trace-id", traceContext.traceId);
+
+    if (request.method === "OPTIONS") {
+      await reply.code(204).send();
+      return;
+    }
 
     logger.info("Incoming request", {
       requestId: traceContext.requestId,

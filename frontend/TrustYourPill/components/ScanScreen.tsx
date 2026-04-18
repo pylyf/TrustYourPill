@@ -33,10 +33,23 @@ type Props = {
 };
 
 type ScanResult = {
-  name?: string;
-  dosage?: string;
-  type?: string;
-  confidence?: number;
+  source?: string;
+  model?: string;
+  extraction?: {
+    medicationName?: string | null;
+    dosageText?: string | null;
+    formText?: string | null;
+    confidence?: 'high' | 'medium' | 'low';
+    requiresReview?: boolean;
+  };
+  match?: {
+    status?: 'matched' | 'ambiguous' | 'no_match';
+    reason?: string;
+    candidateCount?: number;
+    bestCandidate?: {
+      normalizedName?: string;
+    } | null;
+  };
   message?: string;
 };
 
@@ -119,22 +132,20 @@ export function ScanScreen({ visible, onClose }: Props) {
     return cameraStatus === 'granted' && libraryStatus === 'granted';
   };
 
-  const handleProcessImage = async (uri: string) => {
+  const handleProcessImage = async (uri: string, base64?: string | null) => {
     setImageUri(uri);
     setStatus('scanning');
 
     try {
-      const filename = uri.split('/').pop() || 'photo.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
+      let imageBase64DataUrl: string;
 
-      const formData = new FormData();
-      // Adjust according to fetch requirements for react-native
-      formData.append('image', {
-        uri: uri,
-        name: filename,
-        type,
-      } as any);
+      if (base64) {
+        imageBase64DataUrl = `data:image/jpeg;base64,${base64}`;
+      } else {
+        const localResponse = await fetch(uri);
+        const blob = await localResponse.blob();
+        imageBase64DataUrl = await blobToDataUrl(blob);
+      }
 
       // Timeout for visual effect and backend wait
       const scanStart = Date.now();
@@ -143,9 +154,12 @@ export function ScanScreen({ visible, onClose }: Props) {
       const response = await fetch('http://127.0.0.1:3001/api/medications/scan', {
         method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({
+          imageBase64DataUrl,
+          hint: 'pharmacy bottle label',
+        }),
       });
 
       const data = await response.json();
@@ -176,9 +190,10 @@ export function ScanScreen({ visible, onClose }: Props) {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      base64: true,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      handleProcessImage(result.assets[0].uri);
+      handleProcessImage(result.assets[0].uri, result.assets[0].base64);
     }
   };
 
@@ -189,9 +204,10 @@ export function ScanScreen({ visible, onClose }: Props) {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      base64: true,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      handleProcessImage(result.assets[0].uri);
+      handleProcessImage(result.assets[0].uri, result.assets[0].base64);
     }
   };
 
@@ -244,7 +260,7 @@ export function ScanScreen({ visible, onClose }: Props) {
                 styles.resultCard, 
                 { opacity: cardOp, transform: [{ translateY: cardY }] }
               ]}>
-                <BlurView intensity={70} tint="light" style={styles.resultInner}>
+                <View style={styles.resultInner}>
                   {status === 'success' ? (
                     <>
                       <View style={styles.resultHeader}>
@@ -252,8 +268,14 @@ export function ScanScreen({ visible, onClose }: Props) {
                         <Text style={styles.resultTitle}>Medication Found</Text>
                       </View>
                       <View style={styles.pillDetails}>
-                        <Text style={styles.pillName}>{result?.name || 'Unknown Pill'}</Text>
-                        <Text style={styles.pillDosage}>{result?.dosage ? `${result.dosage} - ${result.type}` : 'Dosage Unspecified'}</Text>
+                        <Text style={styles.pillName}>
+                          {result?.extraction?.medicationName || result?.match?.bestCandidate?.normalizedName || 'Unknown Medication'}
+                        </Text>
+                        <Text style={styles.pillDosage}>
+                          {result?.extraction?.dosageText
+                            ? `${result.extraction.dosageText}${result.extraction.formText ? ` - ${result.extraction.formText}` : ''}`
+                            : result?.match?.reason || 'Dosage Unspecified'}
+                        </Text>
                       </View>
                     </>
                   ) : (
@@ -277,7 +299,7 @@ export function ScanScreen({ visible, onClose }: Props) {
                       <Text style={styles.confirmLabel}>{status === 'success' ? 'Confirm' : 'Close'}</Text>
                     </Pressable>
                   </View>
-                </BlurView>
+                </View>
               </Animated.View>
             )}
           </View>
@@ -410,12 +432,12 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     borderRadius: 30,
     overflow: 'hidden',
-    backgroundColor: '#000',
+    backgroundColor: 'transparent',
   },
   capturedImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   scanningOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -475,7 +497,7 @@ const styles = StyleSheet.create({
   },
   resultInner: {
     padding: 24,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: '#FFFFFF',
   },
   resultHeader: {
     flexDirection: 'row',
@@ -538,3 +560,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 });
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image data.'));
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error('Failed to convert image to data URL.'));
+    };
+    reader.readAsDataURL(blob);
+  });
+}
