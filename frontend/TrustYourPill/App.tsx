@@ -4,14 +4,18 @@ import {
   Image,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
   CalendarDays,
   ClipboardList,
+  Clock,
+  Flame,
   HeartPulse,
   House,
   LucideIcon,
@@ -41,13 +45,6 @@ type ActionCardProps = {
   solid?: boolean;
 };
 
-type MedicationCardProps = {
-  title: string;
-  subtitle: string;
-  imageUri: string;
-  tint: string;
-};
-
 function ActionCard({ label, icon: Icon, active = false, compact = false, solid = false }: ActionCardProps) {
   if (solid) {
     return (
@@ -74,18 +71,6 @@ function ActionCard({ label, icon: Icon, active = false, compact = false, solid 
       </View>
       {!compact ? <Text style={styles.actionLabel}>{label}</Text> : null}
     </Pressable>
-  );
-}
-
-function MedicationCard({ title, subtitle, imageUri, tint }: MedicationCardProps) {
-  return (
-    <View style={[styles.medicationCard, { backgroundColor: tint }]}>
-      <View style={styles.medicationCopy}>
-        <Text style={styles.medicationTitle}>{title}</Text>
-        <Text style={styles.medicationSubtitle}>{subtitle}</Text>
-      </View>
-      <Image source={{ uri: imageUri }} style={styles.medicationImage} resizeMode="contain" />
-    </View>
   );
 }
 
@@ -145,20 +130,105 @@ export default function App() {
           </View>
         </View>
 
-        <View style={styles.content}>
-          <MedicationCard
-            title="Paracetamol"
-            subtitle="Pain Relief · 1 pill (500mg)"
-            imageUri={paracetamolUri}
-            tint="#E8F4FA"
-          />
-          <MedicationCard
-            title="Ibuprofen"
-            subtitle="Liver · 1 pill (200mg)"
-            imageUri={ibuprofenUri}
-            tint="#D1CBEF"
-          />
-        </View>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentInner}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Day in Pills</Text>
+            <Text style={styles.sectionMeta}>
+              Next appointment: <Text style={styles.sectionMetaStrong}>Monday</Text>
+            </Text>
+          </View>
+
+          {/* Hero adherence card — light pastel gradient */}
+          <LinearGradient
+            colors={['#F4D6E4', '#D9C8EF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.adherenceCard}
+          >
+            <Text style={styles.cardLabel}>Today's adherence</Text>
+            <View style={styles.adherenceRow}>
+              <View>
+                <Text style={styles.adherenceValue}>
+                  2<Text style={styles.adherenceUnit}> of 4</Text>
+                </Text>
+                <Text style={styles.cardMeta}>pills taken</Text>
+              </View>
+              <View style={styles.ring}>
+                <Text style={styles.ringText}>50%</Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* Pill row */}
+          <View style={styles.row}>
+            <LinearGradient
+              colors={['#E8F4FA', '#CFE5F2']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.gridCard, styles.pillCard]}
+            >
+              <Text style={styles.cardLabel}>Paracetamol</Text>
+              <Image source={{ uri: paracetamolUri }} style={styles.pillImage} resizeMode="contain" />
+              <View>
+                <Text style={styles.pillDose}>500mg</Text>
+                <Text style={styles.cardMeta}>Pain relief</Text>
+              </View>
+            </LinearGradient>
+
+            <LinearGradient
+              colors={['#E2DBF6', '#C9BFEE']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.gridCard, styles.pillCard]}
+            >
+              <Text style={styles.cardLabel}>Ibuprofen</Text>
+              <Image source={{ uri: ibuprofenUri }} style={styles.pillImage} resizeMode="contain" />
+              <View>
+                <Text style={styles.pillDose}>200mg</Text>
+                <Text style={styles.cardMeta}>Anti-inflam.</Text>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Stats row */}
+          <View style={styles.row}>
+            <LinearGradient
+              colors={['#D9EFDC', '#BFE3C8']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.gridCard, styles.statCard]}
+            >
+              <View style={styles.statHeader}>
+                <Flame color="#1C6B3A" size={15} strokeWidth={2.4} />
+                <Text style={styles.cardLabel}>Streak</Text>
+              </View>
+              <Text style={styles.statValue}>
+                12<Text style={styles.statUnit}> days</Text>
+              </Text>
+              <Text style={styles.cardMeta}>Personal best</Text>
+            </LinearGradient>
+
+            <LinearGradient
+              colors={['#FCE2CF', '#F6C9A8']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.gridCard, styles.statCard]}
+            >
+              <View style={styles.statHeader}>
+                <Clock color="#8A3A14" size={15} strokeWidth={2.4} />
+                <Text style={styles.cardLabel}>Next dose</Text>
+              </View>
+              <Text style={styles.statValue}>
+                2:30<Text style={styles.statUnit}> PM</Text>
+              </Text>
+              <Text style={styles.cardMeta}>Paracetamol</Text>
+            </LinearGradient>
+          </View>
+        </ScrollView>
 
         <View style={styles.bottomWrap}>
           <View style={styles.bottomBar}>
@@ -327,44 +397,141 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 35,
-    paddingTop: 74,
-    gap: 15,
   },
-  medicationCard: {
-    height: 80,
-    borderRadius: 14,
-    paddingLeft: 25,
-    paddingRight: 12,
+  contentInner: {
+    paddingHorizontal: 28,
+    paddingTop: 28,
+    paddingBottom: 110,
+    gap: 12,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 6,
   },
-  medicationCopy: {
-    flexShrink: 1,
-    paddingRight: 14,
-  },
-  medicationTitle: {
-    fontSize: 20,
-    lineHeight: 24,
-    letterSpacing: -0.48,
+  sectionTitle: {
+    fontSize: 24,
+    lineHeight: 28,
+    letterSpacing: -0.6,
     color: '#000000',
-    fontFamily: geistMedium,
-    marginBottom: 2,
+    fontFamily: geistSemiBold,
   },
-  medicationSubtitle: {
+  sectionMeta: {
     fontSize: 13,
-    lineHeight: 19,
-    color: 'rgba(0,0,0,0.75)',
-    fontFamily: geistMedium,
+    lineHeight: 18,
+    letterSpacing: -0.25,
+    color: 'rgba(0,0,0,0.5)',
+    fontFamily: geistRegular,
   },
-  medicationImage: {
-    width: 96,
-    height: 88,
+  sectionMetaStrong: {
+    color: '#000000',
+    fontFamily: geistSemiBold,
+  },
+  cardLabel: {
+    fontSize: 13,
+    lineHeight: 16,
+    color: 'rgba(0,0,0,0.7)',
+    fontFamily: geistMedium,
+    letterSpacing: -0.2,
+  },
+  cardMeta: {
+    fontSize: 12,
+    color: 'rgba(0,0,0,0.55)',
+    fontFamily: geistMedium,
+    letterSpacing: -0.2,
+    marginTop: 2,
+  },
+  adherenceCard: {
+    borderRadius: 22,
+    padding: 20,
+  },
+  adherenceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 18,
+  },
+  adherenceValue: {
+    fontSize: 40,
+    lineHeight: 42,
+    color: '#000000',
+    fontFamily: geistSemiBold,
+    letterSpacing: -1.3,
+  },
+  adherenceUnit: {
+    fontSize: 20,
+    color: 'rgba(0,0,0,0.6)',
+    fontFamily: geistMedium,
+    letterSpacing: -0.4,
+  },
+  ring: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringText: {
+    color: '#000000',
+    fontSize: 15,
+    fontFamily: geistSemiBold,
+    letterSpacing: -0.3,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  gridCard: {
+    flex: 1,
+    borderRadius: 22,
+    padding: 16,
+  },
+  pillCard: {
+    height: 168,
+    justifyContent: 'space-between',
+  },
+  pillImage: {
+    width: '100%',
+    height: 64,
+    marginVertical: 2,
+  },
+  pillDose: {
+    fontSize: 22,
+    lineHeight: 24,
+    color: '#000000',
+    fontFamily: geistSemiBold,
+    letterSpacing: -0.5,
+  },
+  statCard: {
+    height: 120,
+    justifyContent: 'space-between',
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statValue: {
+    fontSize: 30,
+    lineHeight: 32,
+    color: '#000000',
+    fontFamily: geistSemiBold,
+    letterSpacing: -0.9,
+  },
+  statUnit: {
+    fontSize: 15,
+    color: 'rgba(0,0,0,0.6)',
+    fontFamily: geistMedium,
+    letterSpacing: -0.3,
   },
   bottomWrap: {
-    paddingHorizontal: 35,
-    paddingBottom: 14,
+    position: 'absolute',
+    left: 35,
+    right: 35,
+    bottom: 14,
   },
   bottomBar: {
     height: 63,
