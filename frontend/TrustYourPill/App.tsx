@@ -31,9 +31,11 @@ import {
 function AnimatedScreen({ visible, children }: { visible: boolean; children: React.ReactNode }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(18)).current;
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     if (visible) {
+      setMounted(true);
       opacity.setValue(0);
       translateY.setValue(18);
       Animated.parallel([
@@ -49,13 +51,20 @@ function AnimatedScreen({ visible, children }: { visible: boolean; children: Rea
           useNativeDriver: true,
         }),
       ]).start();
+    } else {
+      Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+        setMounted(false);
+      });
     }
   }, [visible]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   return (
-    <Animated.View style={[styles.animatedScreen, { opacity, transform: [{ translateY }] }]}>
+    <Animated.View
+      style={[styles.animatedScreen, { opacity, transform: [{ translateY }] }]}
+      pointerEvents={visible ? 'auto' : 'none'}
+    >
       {children}
     </Animated.View>
   );
