@@ -119,3 +119,25 @@ export async function createSymptomLog(input: {
   const data = await res.json();
   return data.log as SymptomLog;
 }
+
+// ── Supplements ───────────────────────────────────────────────────────────────
+
+export type SupplementSource = {
+  store: string;
+  price: string;
+  url: string;
+};
+
+export type SupplementRecommendation = {
+  candidateName: string;
+  label: string;
+  rationale: string;
+  sources: SupplementSource[];
+};
+
+export async function getUserSupplements(): Promise<SupplementRecommendation[]> {
+  const res = await fetch(`${API_BASE}/api/users/${DEMO_USER_ID}/supplements`);
+  if (!res.ok) throw new Error('Failed to fetch supplements');
+  const data = await res.json();
+  return data.supplements as SupplementRecommendation[];
+}

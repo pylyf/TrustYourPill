@@ -1,139 +1,61 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  Image,
-  ActivityIndicator,
-  LayoutAnimation,
 } from 'react-native';
-import {
-  AlertCircle,
-  ExternalLink,
-  Pill,
-  Shield,
-} from 'lucide-react-native';
+import { ExternalLink, Sparkles } from 'lucide-react-native';
 import { colors, fonts } from '../theme';
-import type { UserMedication } from '../lib/api';
+import { getUserSupplements, type SupplementRecommendation, type UserMedication } from '../lib/api';
 
-// ─── Static mock data ─────────────────────────────────────────────────────────
-
-type SupplementSuggestion = {
-  id: string;
-  name: string;
-  reason: string;
-  urgency: 'high' | 'medium' | 'low';
-  image: any;
-};
-
-type MedSideEffectTip = {
-  id: string;
-  medication: string;
-  sideEffect: string;
-  remedy: string;
-  searchKey: string;
-  image: any;
-};
-
-const BLOOD_TEST_SUPPLEMENTS: SupplementSuggestion[] = [
-  {
-    id: '1',
-    name: 'Vitamin D3',
-    reason: 'Your levels are at 18 ng/mL — below the optimal 30–50 ng/mL range.',
-    urgency: 'high',
-    image: require('../assets/drops.png'),
-  },
-  {
-    id: '2',
-    name: 'Magnesium Glycinate',
-    reason: 'Low RBC magnesium detected. Helps with muscle recovery and sleep.',
-    urgency: 'medium',
-    image: require('../assets/syrup.png'),
-  },
-  {
-    id: '3',
-    name: 'Omega-3 (EPA/DHA)',
-    reason: 'Elevated triglycerides at 210 mg/dL. Omega-3 can support reduction.',
-    urgency: 'medium',
-    image: require('../assets/cream.png'),
-  },
-  {
-    id: '4',
-    name: 'Iron Bisglycinate',
-    reason: 'Ferritin at 11 ng/mL — borderline low. Gentle form for easy absorption.',
-    urgency: 'low',
-    image: require('../assets/syringe.png'),
-  },
+// Asset pool — cycle through by index
+const IMAGES = [
+  require('../assets/drops.png'),
+  require('../assets/syrup.png'),
+  require('../assets/cream.png'),
+  require('../assets/syringe.png'),
+  require('../assets/inhaler.png'),
 ];
 
-const MED_TIPS: MedSideEffectTip[] = [
-  {
-    id: 't1',
-    medication: 'Ibuprofen',
-    sideEffect: 'Stomach irritation',
-    remedy: 'Take Omeprazole (20mg) 30 min before to protect stomach lining.',
-    searchKey: 'Omeprazole',
-    image: require('../assets/syrup.png'),
-  },
-  {
-    id: 't2',
-    medication: 'Aspirin',
-    sideEffect: 'GI discomfort',
-    remedy: 'Consider adding a probiotic like Lactobacillus to restore gut balance.',
-    searchKey: 'Probiotic',
-    image: require('../assets/drops.png'),
-  },
-  {
-    id: 't3',
-    medication: 'Metformin',
-    sideEffect: 'B12 depletion',
-    remedy: 'Supplement with Vitamin B12 (500–1000mcg/day) to prevent deficiency.',
-    searchKey: 'Vitamin B12',
-    image: require('../assets/inhaler.png'),
-  },
-];
+// Skeleton shimmer
 
-const URGENCY_COLOR: Record<SupplementSuggestion['urgency'], string> = {
-  high: '#EF4444',
-  medium: '#F97316',
-  low: '#22C55E',
-};
+function SkeletonCard({ index }: { index: number }) {
+  const shimmer = useRef(new Animated.Value(0)).current;
 
-type SupplementSource = {
-  id: string;
-  supplement: string;
-  store: string;
-  price: string;
-  url: string;
-};
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
-const SUPPLEMENT_SOURCES: SupplementSource[] = [
-  { id: 's1', supplement: 'Vitamin D3', store: 'iHerb', price: '$12.99', url: 'https://iherb.com' },
-  { id: 's2', supplement: 'Vitamin D3', store: 'Amazon', price: '$9.49', url: 'https://amazon.com' },
-  { id: 's3', supplement: 'Magnesium Glycinate', store: 'iHerb', price: '$18.50', url: 'https://iherb.com' },
-  { id: 's4', supplement: 'Magnesium Glycinate', store: 'Vitacost', price: '$15.99', url: 'https://vitacost.com' },
-  { id: 's5', supplement: 'Omega-3 (EPA/DHA)', store: 'Nordic Naturals', price: '$29.95', url: 'https://nordicnaturals.com' },
-  { id: 's6', supplement: 'Omega-3 (EPA/DHA)', store: 'Amazon', price: '$22.00', url: 'https://amazon.com' },
-  { id: 's7', supplement: 'Iron Bisglycinate', store: 'Thorne', price: '$24.00', url: 'https://thorne.com' },
-  { id: 's8', supplement: 'Iron Bisglycinate', store: 'iHerb', price: '$16.75', url: 'https://iherb.com' },
-  { id: 's9', supplement: 'Omeprazole', store: 'Walgreens', price: '$14.99', url: 'https://walgreens.com' },
-  { id: 's10', supplement: 'Omeprazole', store: 'Amazon', price: '$11.50', url: 'https://amazon.com' },
-  { id: 's11', supplement: 'Probiotic', store: 'iHerb', price: '$19.95', url: 'https://iherb.com' },
-  { id: 's12', supplement: 'Probiotic', store: 'Thorne', price: '$32.00', url: 'https://thorne.com' },
-  { id: 's13', supplement: 'Vitamin B12', store: 'iHerb', price: '$8.99', url: 'https://iherb.com' },
-  { id: 's14', supplement: 'Vitamin B12', store: 'Amazon', price: '$7.49', url: 'https://amazon.com' },
-];
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.85] });
 
-const URGENCY_LABEL: Record<SupplementSuggestion['urgency'], string> = {
-  high: 'High priority',
-  medium: 'Recommended',
-  low: 'Optional boost',
-};
+  const widths = [160, 120, 140];
+  const reasonWidths = ['90%', '75%', '85%'];
 
-// ─── sub-components ───────────────────────────────────────────────────────────
+  return (
+    <Animated.View style={[styles.supplementCard, { opacity }]}>
+      <View style={styles.cardHeader}>
+        <View style={styles.skeletonImage} />
+        <View style={[styles.cardTitleWrap, { gap: 6 }]}>
+          <View style={[styles.skeletonLine, { width: widths[index % 3] }]} />
+          <View style={[styles.skeletonLine, { width: 80, height: 10 }]} />
+        </View>
+      </View>
+      <View style={[styles.skeletonLine, { width: reasonWidths[index % 3] as any, height: 12 }]} />
+      <View style={[styles.skeletonLine, { width: '60%', height: 12 }]} />
+    </Animated.View>
+  );
+}
+
+// Sub-components
 
 function SectionLabel({ icon: Icon, label }: { icon: any; label: string }) {
   return (
@@ -144,16 +66,18 @@ function SectionLabel({ icon: Icon, label }: { icon: any; label: string }) {
   );
 }
 
-function SupplementCard({ item, index }: { item: SupplementSuggestion; index: number }) {
+function SupplementCard({ item, index }: { item: SupplementRecommendation; index: number }) {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    Animated.stagger(100, [
-      Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.spring(translateY, { toValue: 0, bounciness: 6, useNativeDriver: true })
-    ]).start();
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, bounciness: 6, useNativeDriver: true }),
+      ]).start();
+    }, index * 80);
   }, []);
 
   const onPressIn = () =>
@@ -165,146 +89,48 @@ function SupplementCard({ item, index }: { item: SupplementSuggestion; index: nu
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
       <Animated.View style={[styles.supplementCard, { opacity, transform: [{ scale }, { translateY }] }]}>
         <View style={styles.cardHeader}>
-          <Image source={item.image} style={styles.cardImage} resizeMode="contain" />
+          <Image source={IMAGES[index % IMAGES.length]} style={styles.cardImage} resizeMode="contain" />
           <View style={styles.cardTitleWrap}>
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <View style={styles.urgencyBadge}>
-              <View style={[styles.urgencyDot, { backgroundColor: URGENCY_COLOR[item.urgency] }]} />
-              <Text style={[styles.urgencyText, { color: URGENCY_COLOR[item.urgency] }]}>
-                {URGENCY_LABEL[item.urgency]}
-              </Text>
-            </View>
+            <Text style={styles.cardTitle}>{item.candidateName}</Text>
+            <Text style={styles.cardLabel}>{item.label}</Text>
           </View>
         </View>
-        <Text style={styles.cardReason}>{item.reason}</Text>
-        <PillSearchLoader supplementName={item.name} />
+        <Text style={styles.cardReason}>{item.rationale}</Text>
+        {item.sources.length > 0 && (
+          <View style={styles.pillSearchDone}>
+            {item.sources.map((src, i) => (
+              <View key={i} style={styles.pillSourceRow}>
+                <ExternalLink size={11} strokeWidth={2.4} color={colors.accent} />
+                <Text style={styles.pillSourceTxt}>{src.store}</Text>
+                <Text style={styles.pillSourcePrice}>{src.price}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </Animated.View>
     </Pressable>
   );
 }
 
-function MedTipCard({ item, index }: { item: MedSideEffectTip; index: number }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
-
-  useEffect(() => {
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.spring(translateY, { toValue: 0, bounciness: 6, useNativeDriver: true })
-      ]).start();
-    }, index * 100);
-  }, []);
-
-  const onPressIn = () =>
-    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, bounciness: 8 }).start();
-  const onPressOut = () =>
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, bounciness: 8 }).start();
-
-  return (
-    <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
-      <Animated.View style={[styles.tipCard, { opacity, transform: [{ scale }, { translateY }] }]}>
-        <View style={styles.tipTopRow}>
-          <Image source={item.image} style={styles.tipImage} resizeMode="contain" />
-          <View style={styles.tipHeaderWrap}>
-            <View style={styles.tipHeader}>
-              <View style={styles.tipMedBadge}>
-                <Pill size={12} strokeWidth={2.4} color={colors.accent} />
-                <Text style={styles.tipMedName}>{item.medication}</Text>
-              </View>
-              <View style={styles.tipWarningBadge}>
-                <AlertCircle size={12} strokeWidth={2.4} color="#F97316" />
-                <Text style={styles.tipWarningText}>{item.sideEffect}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-        <Text style={styles.tipRemedy}>{item.remedy}</Text>
-        <PillSearchLoader supplementName={item.searchKey} />
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-// ─── Per-pill web search loader ─────────────────────────────────────────────
-
-const SEARCH_TEXTS = [
-  'Searching supplement databases…',
-  'Comparing prices across stores…',
-  'Checking availability…',
-  'Finding best-value options…',
-];
-
-function PillSearchLoader({ supplementName }: { supplementName: string }) {
-  const [textIndex, setTextIndex] = useState(0);
-  const [done, setDone] = useState(false);
-  const textOpacity = useRef(new Animated.Value(1)).current;
-  const resultOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    let idx = 0;
-    const cycle = () => {
-      Animated.timing(textOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
-        idx += 1;
-        if (idx < SEARCH_TEXTS.length) {
-          setTextIndex(idx);
-          Animated.timing(textOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-          setTimeout(cycle, 1100);
-        } else {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          setDone(true);
-          Animated.timing(resultOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start();
-        }
-      });
-    };
-    setTimeout(cycle, 1100);
-  }, []);
-
-  const sources = SUPPLEMENT_SOURCES.filter((s) => s.supplement === supplementName);
-
-  if (done) {
-    return (
-      <Animated.View style={[styles.pillSearchDone, { opacity: resultOpacity }]}>
-        {sources.map((src) => (
-          <View key={src.id} style={styles.pillSourceRow}>
-            <ExternalLink size={11} strokeWidth={2.4} color={colors.accent} />
-            <Text style={styles.pillSourceTxt}>{src.store}</Text>
-            <Text style={styles.pillSourcePrice}>{src.price}</Text>
-          </View>
-        ))}
-      </Animated.View>
-    );
-  }
-
-  return (
-    <View style={styles.pillSearchLoading}>
-      <ActivityIndicator size="small" color="rgba(0,0,0,0.3)" />
-      <Animated.Text style={[styles.pillSearchTxt, { opacity: textOpacity }]}>
-        {SEARCH_TEXTS[textIndex]}
-      </Animated.Text>
-    </View>
-  );
-}
-
-// ─── main screen ─────────────────────────────────────────────────────────────
+// Main screen
 
 type Props = {
   medications: UserMedication[];
 };
 
-export function AnalysisScreen({ medications }: Props) {
-  // Filter med tips to only show for meds the user actually has
-  const userMedNames = medications.map((m) => m.displayName.toLowerCase());
-  const relevantTips = MED_TIPS.filter((t) =>
-    userMedNames.some((n) => n.includes(t.medication.toLowerCase()))
-  );
-  // If no real meds match, show all tips as examples
-  const shownTips = relevantTips.length > 0 ? relevantTips : MED_TIPS;
+export function AnalysisScreen({ medications: _medications }: Props) {
+  const [supplements, setSupplements] = useState<SupplementRecommendation[]>([]);
+  const [supplementsLoading, setSupplementsLoading] = useState(true);
+
+  useEffect(() => {
+    getUserSupplements()
+      .then(setSupplements)
+      .catch(() => setSupplements([]))
+      .finally(() => setSupplementsLoading(false));
+  }, []);
 
   return (
     <View style={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Analysis</Text>
       </View>
@@ -315,24 +141,33 @@ export function AnalysisScreen({ medications }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <SectionLabel icon={Shield} label="Based on your medications" />
-          <Text style={styles.previewHint}>
-            {relevantTips.length > 0
-              ? 'Known side effects from your current medications:'
-              : 'Common side effects from typical medications — add pills via Library to personalise:'}
-          </Text>
-          <View style={styles.cardList}>
-            {shownTips.map((item, index) => (
-              <MedTipCard key={item.id} item={item} index={index} />
-            ))}
-          </View>
+          <SectionLabel icon={Sparkles} label="Recommended supplements" />
+          {supplementsLoading ? (
+            <View style={styles.cardList}>
+              {[0, 1, 2].map((i) => <SkeletonCard key={i} index={i} />)}
+            </View>
+          ) : supplements.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Sparkles size={32} strokeWidth={1.5} color="rgba(0,0,0,0.2)" />
+              <Text style={styles.emptyTitle}>No supplements suggested yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Add medications to your library to get personalised supplement recommendations.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.cardList}>
+              {supplements.map((item, index) => (
+                <SupplementCard key={item.candidateName} item={item} index={index} />
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
 
-// ─── styles ───────────────────────────────────────────────────────────────────
+// Styles
 
 const styles = StyleSheet.create({
   content: { flex: 1, backgroundColor: '#FAFAFA' },
@@ -341,7 +176,7 @@ const styles = StyleSheet.create({
 
   header: {
     paddingHorizontal: 28,
-    paddingTop: 64, // push down for notch
+    paddingTop: 64,
     paddingBottom: 20,
     backgroundColor: '#FAFAFA',
   },
@@ -349,38 +184,6 @@ const styles = StyleSheet.create({
     fontSize: 34,
     lineHeight: 42,
     letterSpacing: -1.23,
-    color: '#111',
-    fontFamily: fonts.semiBold,
-    marginBottom: 20,
-  },
-  
-  switcher: {
-    flexDirection: 'row',
-    backgroundColor: '#EFEFEF',
-    borderRadius: 9999,
-    padding: 4,
-  },
-  switchBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 9999,
-  },
-  switchBtnActive: {
-    backgroundColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  switchTxt: {
-    fontSize: 14,
-    fontFamily: fonts.medium,
-    color: '#666',
-    letterSpacing: -0.3,
-  },
-  switchTxtActive: {
     color: '#111',
     fontFamily: fonts.semiBold,
   },
@@ -401,19 +204,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     textTransform: 'uppercase',
   },
-  previewHint: {
-    fontSize: 13,
-    fontFamily: fonts.regular,
-    color: 'rgba(0,0,0,0.5)',
-    letterSpacing: -0.2,
-    lineHeight: 18,
-    marginTop: -4,
-  },
   cardList: { gap: 12 },
 
-  // Supplement card (White minimalist)
   supplementCard: {
-    borderRadius: 24,
+    borderRadius: 22,
     padding: 20,
     gap: 12,
     backgroundColor: '#FFF',
@@ -436,7 +230,7 @@ const styles = StyleSheet.create({
   },
   cardTitleWrap: {
     flex: 1,
-    gap: 4,
+    gap: 2,
     alignItems: 'flex-start',
   },
   cardTitle: {
@@ -445,141 +239,72 @@ const styles = StyleSheet.create({
     color: '#111',
     letterSpacing: -0.4,
   },
+  cardLabel: {
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    color: 'rgba(0,0,0,0.45)',
+    letterSpacing: -0.2,
+  },
   cardReason: {
     fontSize: 14,
     fontFamily: fonts.regular,
-    color: '#555',
+    color: 'rgba(0,0,0,0.6)',
     letterSpacing: -0.2,
     lineHeight: 20,
   },
-  urgencyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F9F9F9',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
-  },
-  urgencyDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  urgencyText: {
-    fontSize: 12,
-    fontFamily: fonts.semiBold,
-    letterSpacing: -0.2,
-  },
 
-  // Med tip card (White minimalist)
-  tipCard: {
-    borderRadius: 24,
-    padding: 20,
-    gap: 14,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  tipTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  tipImage: {
-    width: 48,
-    height: 48,
-  },
-  tipHeaderWrap: {
-    flex: 1,
-  },
-  tipHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  tipMedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 9999,
-  },
-  tipMedName: {
-    fontSize: 13,
-    fontFamily: fonts.semiBold,
-    color: '#111',
-    letterSpacing: -0.2,
-  },
-  tipWarningBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFF7ED', // Orange 50
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 9999,
-  },
-  tipWarningText: {
-    fontSize: 13,
-    fontFamily: fonts.semiBold,
-    color: '#D97706',
-    letterSpacing: -0.2,
-  },
-  tipRemedy: {
-    fontSize: 15,
-    fontFamily: fonts.regular,
-    color: '#555',
-    letterSpacing: -0.2,
-    lineHeight: 22,
-  },
-
-  // Per-pill search loader
-  pillSearchLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  pillSearchTxt: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
-    color: 'rgba(0,0,0,0.4)',
-    letterSpacing: -0.2,
-  },
   pillSearchDone: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
+    gap: 6,
+    paddingTop: 4,
   },
   pillSourceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F5F8FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 9999,
+    gap: 6,
   },
   pillSourceTxt: {
+    flex: 1,
     fontSize: 12,
     fontFamily: fonts.medium,
-    color: colors.accent,
+    color: '#111',
     letterSpacing: -0.2,
   },
   pillSourcePrice: {
     fontSize: 12,
     fontFamily: fonts.semiBold,
-    color: '#111',
+    color: '#006BFF',
     letterSpacing: -0.2,
+  },
+
+  skeletonImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#E8E8E8',
+  },
+  skeletonLine: {
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#E8E8E8',
+  },
+  emptyState: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 28,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontFamily: fonts.semiBold,
+    color: '#111',
+    letterSpacing: -0.3,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: 'rgba(0,0,0,0.45)',
+    letterSpacing: -0.2,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
   },
 });
