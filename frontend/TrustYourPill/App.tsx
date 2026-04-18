@@ -38,6 +38,7 @@ type ActionCardProps = {
   icon: LucideIcon;
   active?: boolean;
   compact?: boolean;
+  solid?: boolean;
 };
 
 type MedicationCardProps = {
@@ -47,7 +48,14 @@ type MedicationCardProps = {
   tint: string;
 };
 
-function ActionCard({ label, icon: Icon, active = false, compact = false }: ActionCardProps) {
+function ActionCard({ label, icon: Icon, active = false, compact = false, solid = false }: ActionCardProps) {
+  if (solid) {
+    return (
+      <Pressable style={styles.actionCardSolid}>
+        <Icon size={20} strokeWidth={2.2} color="#FFFFFF" />
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       style={[
@@ -133,7 +141,7 @@ export default function App() {
           <View style={styles.actionsRow}>
             <ActionCard label="Daily Checkup" icon={HeartPulse} active />
             <ActionCard label="Appointments" icon={CalendarDays} />
-            <ActionCard label="" icon={Phone} active compact />
+            <ActionCard label="" icon={Phone} active compact solid />
           </View>
         </View>
 
@@ -279,6 +287,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 0,
     backgroundColor: '#006BFF',
+  },
+  actionCardSolid: {
+    width: 43,
+    height: 43,
+    borderRadius: 21.5,
+    backgroundColor: '#006BFF',
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#006BFF',
+    shadowOpacity: 0.4,
+    shadowRadius: 6.6,
+    shadowOffset: { width: 0, height: 0 },
   },
   actionIconCircle: {
     width: 29,
