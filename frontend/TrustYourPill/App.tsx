@@ -17,6 +17,7 @@ import { PillLibraryScreen } from './screens/PillLibraryScreen';
 import { SymptomsScreen } from './screens/SymptomsScreen';
 import { CheckupScreen } from './screens/CheckupScreen';
 import { AnalysisScreen } from './screens/AnalysisScreen';
+import { OnboardingScreen } from './screens/OnboardingScreen';
 import {
   getUserMedications,
   addUserMedication,
@@ -79,6 +80,8 @@ export default function App() {
     Geist_600SemiBold,
   });
 
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const onboardingOpacity = useRef(new Animated.Value(1)).current;
   const [tab, setTab] = useState<TabId>('home');
   const [overlay, setOverlay] = useState<null | 'checkup' | 'scan' | 'medOverview'>(null);
   const [scannedName, setScannedName] = useState<string | null>(null);
@@ -229,6 +232,14 @@ export default function App() {
 
   const currentMedicationNames = userMedications.map((m) => m.normalizedName);
 
+  const handleFinishOnboarding = () => {
+    Animated.timing(onboardingOpacity, {
+      toValue: 0,
+      duration: 320,
+      useNativeDriver: true,
+    }).start(() => setShowOnboarding(false));
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -290,6 +301,12 @@ export default function App() {
       />
       <EmergencyDrawer visible={isEmergencyDrawerVisible} onClose={() => setIsEmergencyDrawerVisible(false)} />
       <AppointmentsDrawer visible={isAppointmentsDrawerVisible} onClose={() => setIsAppointmentsDrawerVisible(false)} />
+
+      {showOnboarding && (
+        <Animated.View style={[styles.onboardingLayer, { opacity: onboardingOpacity }]}>
+          <OnboardingScreen onComplete={handleFinishOnboarding} />
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -305,5 +322,11 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: '#FFFFFF',
     zIndex: 10,
+  },
+  onboardingLayer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: '#FFFFFF',
+    zIndex: 100,
   },
 });
