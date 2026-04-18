@@ -30,6 +30,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 type Props = {
   visible: boolean;
   onClose: () => void;
+  onConfirm: (name: string) => void;
 };
 
 type ScanResult = {
@@ -53,7 +54,7 @@ type ScanResult = {
   message?: string;
 };
 
-export function ScanScreen({ visible, onClose }: Props) {
+export function ScanScreen({ visible, onClose, onConfirm }: Props) {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -217,8 +218,8 @@ export function ScanScreen({ visible, onClose }: Props) {
   };
 
   const handleConfirm = () => {
-    // Add to your logic here...
-    onClose();
+    const medName = result?.extraction?.medicationName || result?.match?.bestCandidate?.normalizedName || 'Unknown Medication';
+    onConfirm(medName);
   };
 
   return (
