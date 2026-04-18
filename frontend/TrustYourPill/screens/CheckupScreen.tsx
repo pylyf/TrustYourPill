@@ -157,7 +157,7 @@ export function CheckupScreen({ onClose }: { onClose: () => void }) {
 
             {otherSelected ? (
               <View style={styles.otherInputWrap}>
-                <Text style={styles.otherLabel}>What symptom are you feeling?</Text>
+                <Text style={styles.otherLabel}>What other symptom/s are you feeling?</Text>
                 <TextInput
                   value={otherSymptom}
                   onChangeText={setOtherSymptom}
