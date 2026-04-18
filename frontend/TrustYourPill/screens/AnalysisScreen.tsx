@@ -14,7 +14,14 @@ import { getUserSupplements, type SupplementRecommendation, type UserMedication 
 
 const PILL_BOTTLE = require('../assets/pill1.png');
 
-// ─── Static popular supplements (always shown immediately) ──────────────────
+// ─── Loading messages ────────────────────────────────────────────────────────
+
+const LOADING_STEPS = [
+  'Reviewing your medications…',
+  'Finding supplements…',
+  'Looking up stores…',
+  'Almost there…',
+];
 
 const POPULAR_SUPPLEMENTS: SupplementRecommendation[] = [
   {
@@ -59,7 +66,7 @@ const POPULAR_SUPPLEMENTS: SupplementRecommendation[] = [
   },
 ];
 
-// Module-level cache — survives tab switches, cleared on full app reload
+// ─── Static popular supplements (always shown immediately) ──────────────────
 let _supplementsCache: SupplementRecommendation[] | null = null;
 
 // Asset pool — cycle through by index
@@ -71,37 +78,49 @@ const IMAGES = [
   require('../assets/inhaler.png'),
 ];
 
-// Skeleton shimmer
+// ─── Loading overlay ─────────────────────────────────────────────────────────
 
-function SkeletonCard({ index }: { index: number }) {
-  const shimmer = useRef(new Animated.Value(0)).current;
+function LoadingOverlay() {
+  const [stepIndex, setStepIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const dotAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+        setStepIndex((i) => Math.min(i + 1, LOADING_STEPS.length - 1));
+        Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      });
+    }, 1800);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
+        Animated.timing(dotAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(dotAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
       ])
     ).start();
   }, []);
 
-  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.85] });
-
-  const widths = [160, 120, 140];
-  const reasonWidths = ['90%', '75%', '85%'];
+  const dot1Op = dotAnim.interpolate({ inputRange: [0, 0.33, 1], outputRange: [0.3, 1, 0.3] });
+  const dot2Op = dotAnim.interpolate({ inputRange: [0, 0.5,  1], outputRange: [0.3, 1, 0.3] });
+  const dot3Op = dotAnim.interpolate({ inputRange: [0, 0.66, 1], outputRange: [0.3, 1, 0.3] });
 
   return (
-    <Animated.View style={[styles.supplementCard, { opacity }]}>
-      <View style={styles.cardHeader}>
-        <View style={styles.skeletonImage} />
-        <View style={[styles.cardTitleWrap, { gap: 6 }]}>
-          <View style={[styles.skeletonLine, { width: widths[index % 3] }]} />
-          <View style={[styles.skeletonLine, { width: 80, height: 10 }]} />
+    <View style={styles.loadingOverlay}>
+      <View style={styles.loadingTextRow}>
+        <Animated.Text style={[styles.loadingMessage, { opacity: fadeAnim }]}>
+          {LOADING_STEPS[stepIndex]}
+        </Animated.Text>
+        <View style={styles.dotsRow}>
+          <Animated.View style={[styles.dot, { opacity: dot1Op }]} />
+          <Animated.View style={[styles.dot, { opacity: dot2Op }]} />
+          <Animated.View style={[styles.dot, { opacity: dot3Op }]} />
         </View>
       </View>
-      <View style={[styles.skeletonLine, { width: reasonWidths[index % 3] as any, height: 12 }]} />
-      <View style={[styles.skeletonLine, { width: '60%', height: 12 }]} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -116,19 +135,76 @@ function SectionLabel({ icon: Icon, label }: { icon: any; label: string }) {
   );
 }
 
+const CARD_STEPS = [
+  'Finding supplement…',
+  'Searching store prices…',
+];
+
 function SupplementCard({ item, index, isStatic = false }: { item: SupplementRecommendation; index: number; isStatic?: boolean }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
 
+  // Per-card loading state
+  const [cardLoading, setCardLoading] = useState(true);
+  const [stepIndex, setStepIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const dotAnim = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+
+  // Each card starts loading at a staggered time
+  const LOAD_DURATION = 1600; // ms per card loading animation
+
   useEffect(() => {
-    setTimeout(() => {
+    const startDelay = index * 350;
+
+    // Slide card in
+    const slideTimer = setTimeout(() => {
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(cardOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
         Animated.spring(translateY, { toValue: 0, bounciness: 6, useNativeDriver: true }),
       ]).start();
-    }, index * 80);
+    }, startDelay);
+
+    // Dot pulse loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(dotAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(dotAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Cycle through card steps
+    const stepTimer = setTimeout(() => {
+      const stepInterval = setInterval(() => {
+        Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
+          setStepIndex((i) => Math.min(i + 1, CARD_STEPS.length - 1));
+          Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+        });
+      }, LOAD_DURATION / CARD_STEPS.length);
+
+      // Reveal content after loading
+      const revealTimer = setTimeout(() => {
+        clearInterval(stepInterval);
+        setCardLoading(false);
+        Animated.timing(contentOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+      }, LOAD_DURATION);
+
+      return () => {
+        clearInterval(stepInterval);
+        clearTimeout(revealTimer);
+      };
+    }, startDelay);
+
+    return () => {
+      clearTimeout(slideTimer);
+      clearTimeout(stepTimer);
+    };
   }, []);
+
+  const dot1Op = dotAnim.interpolate({ inputRange: [0, 0.33, 1], outputRange: [0.3, 1, 0.3] });
+  const dot2Op = dotAnim.interpolate({ inputRange: [0, 0.5,  1], outputRange: [0.3, 1, 0.3] });
+  const dot3Op = dotAnim.interpolate({ inputRange: [0, 0.66, 1], outputRange: [0.3, 1, 0.3] });
 
   const onPressIn = () =>
     Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, bounciness: 8 }).start();
@@ -137,25 +213,46 @@ function SupplementCard({ item, index, isStatic = false }: { item: SupplementRec
 
   return (
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
-      <Animated.View style={[styles.supplementCard, { opacity, transform: [{ scale }, { translateY }] }]}>
+      <Animated.View style={[styles.supplementCard, { opacity: cardOpacity, transform: [{ scale }, { translateY }] }]}>
         <View style={styles.cardHeader}>
-          <Image source={isStatic ? PILL_BOTTLE : IMAGES[index % IMAGES.length]} style={styles.cardImage} resizeMode="contain" />
+          {!cardLoading && (
+            <Image source={isStatic ? PILL_BOTTLE : IMAGES[index % IMAGES.length]} style={styles.cardImage} resizeMode="contain" />
+          )}
           <View style={styles.cardTitleWrap}>
-            <Text style={styles.cardTitle}>{item.candidateName}</Text>
-            <Text style={styles.cardLabel}>{item.label}</Text>
+            {cardLoading ? (
+              <View style={styles.cardLoadingRow}>
+                <Animated.Text style={[styles.cardLoadingText, { opacity: fadeAnim }]}>
+                  {CARD_STEPS[stepIndex]}
+                </Animated.Text>
+                <View style={styles.dotsRow}>
+                  <Animated.View style={[styles.dot, { opacity: dot1Op }]} />
+                  <Animated.View style={[styles.dot, { opacity: dot2Op }]} />
+                  <Animated.View style={[styles.dot, { opacity: dot3Op }]} />
+                </View>
+              </View>
+            ) : (
+              <Animated.View style={{ opacity: contentOpacity }}>
+                <Text style={styles.cardTitle}>{item.candidateName}</Text>
+                <Text style={styles.cardLabel}>{item.label}</Text>
+              </Animated.View>
+            )}
           </View>
         </View>
-        <Text style={styles.cardReason}>{item.rationale}</Text>
-        {item.sources.length > 0 && (
-          <View style={styles.pillSearchDone}>
-            {item.sources.map((src, i) => (
-              <View key={i} style={styles.pillSourceRow}>
-                <ExternalLink size={11} strokeWidth={2.4} color={colors.accent} />
-                <Text style={styles.pillSourceTxt}>{src.store}</Text>
-                <Text style={styles.pillSourcePrice}>{src.price}</Text>
+        {!cardLoading && (
+          <Animated.View style={{ opacity: contentOpacity, gap: 12 }}>
+            <Text style={styles.cardReason}>{item.rationale}</Text>
+            {item.sources.length > 0 && (
+              <View style={styles.pillSearchDone}>
+                {item.sources.map((src, i) => (
+                  <View key={i} style={styles.pillSourceRow}>
+                    <ExternalLink size={11} strokeWidth={2.4} color={colors.accent} />
+                    <Text style={styles.pillSourceTxt}>{src.store}</Text>
+                    <Text style={styles.pillSourcePrice}>{src.price}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            )}
+          </Animated.View>
         )}
       </Animated.View>
     </Pressable>
@@ -175,10 +272,9 @@ export function AnalysisScreen({ medications: _medications }: Props) {
   const [dynamicLoading, setDynamicLoading] = useState(_supplementsCache === null);
 
   useEffect(() => {
-    if (_supplementsCache !== null) return; // already cached — skip fetch
+    if (_supplementsCache !== null) return;
     getUserSupplements()
       .then((results) => {
-        // Exclude any that duplicate a popular supplement by name
         const popularNames = new Set(
           POPULAR_SUPPLEMENTS.map((s) => s.candidateName.toLowerCase().replace(/[^a-z0-9]/g, ''))
         );
@@ -189,11 +285,10 @@ export function AnalysisScreen({ medications: _medications }: Props) {
         _supplementsCache = unique;
         setDynamicSupplements(unique);
       })
-      .catch(() => setDynamicSupplements([]))
+      .catch(() => {})
       .finally(() => setDynamicLoading(false));
   }, []);
 
-  // All cards: static first, dynamic below (offset index for animation)
   const staticOffset = POPULAR_SUPPLEMENTS.length;
 
   return (
@@ -210,14 +305,13 @@ export function AnalysisScreen({ medications: _medications }: Props) {
         <View style={styles.section}>
           <SectionLabel icon={Sparkles} label="Recommended supplements" />
           <View style={styles.cardList}>
-            {/* Static popular supplements — shown immediately */}
+            {/* Static popular supplements */}
             {POPULAR_SUPPLEMENTS.map((item, index) => (
               <SupplementCard key={item.candidateName} item={item} index={index} isStatic />
             ))}
-
-            {/* Dynamic medication-specific supplements */}
+            {/* Dynamic: loading indicator or real cards */}
             {dynamicLoading ? (
-              [0, 1].map((i) => <SkeletonCard key={`sk-${i}`} index={i} />)
+              <LoadingOverlay />
             ) : (
               dynamicSupplements.map((item, index) => (
                 <SupplementCard
@@ -372,5 +466,48 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 280,
+  },
+
+  cardLoadingRow: {
+    gap: 6,
+  },
+  cardLoadingText: {
+    fontSize: 14,
+    fontFamily: fonts.medium,
+    color: 'rgba(0,0,0,0.5)',
+    letterSpacing: -0.2,
+  },
+
+  loadingOverlay: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingImage: {
+    width: 90,
+    height: 90,
+    opacity: 0.7,
+  },
+  loadingTextRow: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingMessage: {
+    fontSize: 17,
+    fontFamily: fonts.semiBold,
+    color: '#111',
+    letterSpacing: -0.4,
+    textAlign: 'center',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
   },
 });
