@@ -266,6 +266,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   actionCard: {
+    flex: 1,
     height: 43,
     borderRadius: 20,
     backgroundColor: '#EFEFEF',
@@ -283,6 +284,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   actionCardCompact: {
+    flex: 0,
     width: 43,
     justifyContent: 'center',
     paddingHorizontal: 0,
