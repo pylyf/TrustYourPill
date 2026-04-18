@@ -15,6 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Activity, AlertTriangle, Check, Clock } from 'lucide-react-native';
 import { colors, fonts, gradients } from '../theme';
+import { getSymptomLogs, createSymptomLog, type SymptomLog, type UserMedication } from '../lib/api';
 
 type SymptomKey =
   | 'headache'
@@ -39,18 +40,31 @@ const SYMPTOMS: { key: SymptomKey; emoji: string; label: string }[] = [
   { key: 'other',      emoji: '✍️', label: 'Other' },
 ];
 
-const HISTORY = [
-  { id: '1', when: 'Today · 09:12', items: ['Headache', 'Fatigue'] },
-  { id: '2', when: 'Yesterday · 21:40', items: ['Feeling good'] },
-  { id: '3', when: 'Apr 16 · 14:05', items: ['Stomach', 'Nausea'] },
-];
-
-const SIDE_EFFECTS: Record<string, SymptomKey[]> = {
-  Paracetamol: ['nausea', 'soreThroat'],
-  Ibuprofen: ['stomach', 'nausea', 'dizzy'],
+// Maps symptom keys to domain keywords found in analysis.sideEffectSignals
+const SYMPTOM_TO_DOMAINS: Record<SymptomKey, string[]> = {
+  headache:   ['headache', 'bleeding_risk'],
+  nausea:     ['nausea', 'stomach', 'gastrointestinal'],
+  fatigue:    ['fatigue', 'sedation'],
+  dizzy:      ['dizziness', 'sedation', 'bleeding_risk'],
+  stomach:    ['stomach', 'stomach_irritation', 'gastrointestinal', 'liver_caution'],
+  fever:      ['fever'],
+  cough:      ['cough', 'respiratory'],
+  soreThroat: ['throat', 'respiratory'],
+  other:      [],
 };
 
-const ACTIVE_PILLS = ['Paracetamol', 'Ibuprofen'];
+function formatLogDate(isoString: string): string {
+  const d = new Date(isoString);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (isToday) return `Today · ${time}`;
+  if (isYesterday) return `Yesterday · ${time}`;
+  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${time}`;
+}
 
 function SymptomChipButton({
   item,
@@ -145,15 +159,23 @@ function SymptomChipButton({
   );
 }
 
-export function SymptomsScreen() {
+export function SymptomsScreen({ medications }: { medications: UserMedication[] }) {
   const [selected, setSelected] = useState<Set<SymptomKey>>(new Set());
   const [feelingGood, setFeelingGood] = useState(false);
   const [otherSymptom, setOtherSymptom] = useState('');
+  const [history, setHistory] = useState<SymptomLog[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const pageAnim = useRef(new Animated.Value(0)).current;
   const goodAnim = useRef(new Animated.Value(0)).current;
   const ctaAnim = useRef(new Animated.Value(0)).current;
   const otherReveal = useRef(new Animated.Value(0)).current;
   const insightReveal = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    getSymptomLogs().then(setHistory).catch(() => {});
+  }, []);
+
+  const lastCheckIn = history[0] ? formatLogDate(history[0].loggedAt) : null;
 
   function toggle(key: SymptomKey) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -171,16 +193,49 @@ export function SymptomsScreen() {
   const canSubmit = feelingGood || (selected.size > 0 && (!otherSelected || otherFilled));
   const loggedCount = selected.size;
   const selectedLabels = SYMPTOMS.filter((item) => selected.has(item.key)).map((item) => item.label.toLowerCase());
+
+  // Match selected symptoms against stored analysis side effect signals
   const possibleSideEffects = useMemo(() => {
     if (feelingGood || selected.size === 0) return [];
-    return ACTIVE_PILLS.flatMap((pill) => {
-      const matched = (SIDE_EFFECTS[pill] ?? []).filter((symptom) => selected.has(symptom));
-      return matched.map((symptom) => ({
-        pill,
-        symptom: SYMPTOMS.find((item) => item.key === symptom)?.label.toLowerCase() ?? symptom,
-      }));
-    });
-  }, [feelingGood, selected]);
+    const results: { pill: string; symptom: string }[] = [];
+    for (const med of medications) {
+      const signals = med.analysis?.sideEffectSignals ?? [];
+      for (const symptomKey of Array.from(selected) as SymptomKey[]) {
+        if (symptomKey === 'other') continue;
+        const domains = SYMPTOM_TO_DOMAINS[symptomKey];
+        const matchedSignal = signals.find((sig) =>
+          domains.some((d) => sig.domain.toLowerCase().includes(d))
+        );
+        if (matchedSignal) {
+          results.push({
+            pill: med.displayName.split(' ')[0],
+            symptom: SYMPTOMS.find((s) => s.key === symptomKey)?.label.toLowerCase() ?? symptomKey,
+          });
+        }
+      }
+    }
+    return results;
+  }, [feelingGood, selected, medications]);
+
+  async function handleSubmit() {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    try {
+      const log = await createSymptomLog({
+        symptoms: Array.from(selected),
+        otherText: otherSelected ? otherSymptom.trim() || null : null,
+        feelingGood,
+      });
+      setHistory((prev) => [log, ...prev]);
+      setSelected(new Set());
+      setFeelingGood(false);
+      setOtherSymptom('');
+    } catch {
+      // silently fail
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -262,7 +317,7 @@ export function SymptomsScreen() {
         <Text style={styles.title}>How do you feel?</Text>
         <View style={styles.metaRow}>
           <Clock size={13} strokeWidth={2.2} color={colors.meta} />
-          <Text style={styles.meta}>Last check-in · Today 09:12</Text>
+          <Text style={styles.meta}>Last check-in · {lastCheckIn ?? '—'}</Text>
         </View>
       </Animated.View>
 
@@ -515,39 +570,42 @@ export function SymptomsScreen() {
           },
         ]}
       >
-        <Pressable style={[styles.cta, !canSubmit && styles.ctaDisabled]} disabled={!canSubmit}>
+        <Pressable style={[styles.cta, !canSubmit && styles.ctaDisabled]} disabled={!canSubmit || submitting} onPress={handleSubmit}>
           <Text style={styles.ctaText}>
-            {feelingGood ? 'Save check-in' : loggedCount > 0 ? `Log ${loggedCount} symptom${loggedCount === 1 ? '' : 's'}` : 'Select to log'}
+            {submitting ? 'Saving…' : feelingGood ? 'Save check-in' : loggedCount > 0 ? `Log ${loggedCount} symptom${loggedCount === 1 ? '' : 's'}` : 'Select to log'}
           </Text>
         </Pressable>
       </Animated.View>
 
       <Animated.Text style={[styles.sectionTitle, revealStyle(26, 260)]}>Recent</Animated.Text>
       <Animated.View style={[styles.historyList, revealStyle(34, 320)]}>
-        {HISTORY.map((h) => (
-          <Animated.View
-            key={h.id}
-            style={{
-              opacity: pageAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 1],
-              }),
-              transform: [
-                {
-                  translateY: pageAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [22 + Number(h.id) * 8, 0],
-                  }),
-                },
-              ],
-            }}
-          >
-            <View style={styles.historyItem}>
-            <Text style={styles.historyWhen}>{h.when}</Text>
-            <Text style={styles.historyItems}>{h.items.join(' · ')}</Text>
-            </View>
-          </Animated.View>
-        ))}
+        {history.length === 0 ? (
+          <View style={styles.historyItem}>
+            <Text style={styles.historyWhen}>No check-ins yet</Text>
+            <Text style={styles.historyItems}>Log your first symptom above</Text>
+          </View>
+        ) : (
+          history.slice(0, 10).map((h) => (
+            <Animated.View
+              key={h.id}
+              style={{
+                opacity: pageAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
+                transform: [{ translateY: pageAnim.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }],
+              }}
+            >
+              <View style={styles.historyItem}>
+                <Text style={styles.historyWhen}>{formatLogDate(h.loggedAt)}</Text>
+                <Text style={styles.historyItems}>
+                  {h.feelingGood
+                    ? 'Feeling good'
+                    : h.symptoms.map((s) =>
+                        SYMPTOMS.find((x) => x.key === s)?.label ?? s
+                      ).join(' · ') || (h.otherText ?? 'Other')}
+                </Text>
+              </View>
+            </Animated.View>
+          ))
+        )}
       </Animated.View>
     </ScrollView>
   );

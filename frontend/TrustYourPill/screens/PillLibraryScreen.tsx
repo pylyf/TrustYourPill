@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   BookOpen,
+  Check,
   Coffee,
   Info,
   Moon,
@@ -63,6 +64,14 @@ type Props = {
 export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
   const [detailMed, setDetailMed] = useState<UserMedication | null>(null);
   const [detailGradient, setDetailGradient] = useState<GradientKey>('lightBlue');
+  const [takenIds, setTakenIds] = useState<Set<string>>(new Set());
+
+  const toggleTaken = (id: string) =>
+    setTakenIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const openDetail = (med: UserMedication, gradient: GradientKey) => {
     setDetailGradient(gradient);
@@ -131,6 +140,8 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
                     isLast={i === activeSlots.length - 1 && unscheduled.length === 0}
                     onDelete={onDelete}
                     onInfo={openDetail}
+                    takenIds={takenIds}
+                    onToggleTaken={toggleTaken}
                   />
                 ))}
               </View>
@@ -147,8 +158,10 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
                         med={med}
                         gradient={gradient}
                         isNext={false}
+                        taken={takenIds.has(med.id)}
                         onDelete={() => onDelete(med.id)}
                         onInfo={() => openDetail(med, gradient)}
+                        onToggleTaken={() => toggleTaken(med.id)}
                       />
                     );
                   })}
@@ -172,7 +185,7 @@ export function PillLibraryScreen({ medications, onAdd, onDelete }: Props) {
 // -- timeline slot -------------------------------------------------------------
 
 function TimelineSlot({
-  slot, meds, isNext, isLast, onDelete, onInfo,
+  slot, meds, isNext, isLast, onDelete, onInfo, takenIds, onToggleTaken,
 }: {
   slot: (typeof SLOTS)[number];
   meds: UserMedication[];
@@ -180,6 +193,8 @@ function TimelineSlot({
   isLast: boolean;
   onDelete: (id: string) => void;
   onInfo: (med: UserMedication, gradient: GradientKey) => void;
+  takenIds: Set<string>;
+  onToggleTaken: (id: string) => void;
 }) {
   const { Icon } = slot;
   return (
@@ -210,8 +225,10 @@ function TimelineSlot({
                 med={med}
                 gradient={gradient}
                 isNext={isNext}
+                taken={takenIds.has(med.id)}
                 onDelete={() => onDelete(med.id)}
                 onInfo={() => onInfo(med, gradient)}
+                onToggleTaken={() => onToggleTaken(med.id)}
               />
             );
           })}
@@ -224,13 +241,15 @@ function TimelineSlot({
 // -- dose card ----------------------------------------------------------------
 
 function DoseCard({
-  med, gradient, isNext, onDelete, onInfo,
+  med, gradient, isNext, taken, onDelete, onInfo, onToggleTaken,
 }: {
   med: UserMedication;
   gradient: GradientKey;
   isNext: boolean;
+  taken: boolean;
   onDelete: () => void;
   onInfo: () => void;
+  onToggleTaken: () => void;
 }) {
   return (
     <Pressable onLongPress={onInfo} delayLongPress={400}>
@@ -238,18 +257,23 @@ function DoseCard({
         colors={gradients[gradient] as unknown as readonly [string, string]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.doseCard, isNext && styles.doseCardNext]}
+        style={[styles.doseCard, isNext && styles.doseCardNext, taken && styles.doseCardTaken]}
       >
-        <View style={styles.doseIconWrap}>
-          <PillIcon size={18} strokeWidth={2.2} color={colors.dark} />
+        <View style={[styles.doseIconWrap, taken && styles.doseIconWrapTaken]}>
+          {taken
+            ? <Check size={18} strokeWidth={2.4} color={colors.success} />
+            : <PillIcon size={18} strokeWidth={2.2} color={colors.dark} />}
         </View>
         <View style={styles.doseInfo}>
-          <Text style={styles.doseName} numberOfLines={1}>{med.displayName}</Text>
+          <Text style={[styles.doseName, taken && styles.doseNameTaken]} numberOfLines={1}>{med.displayName}</Text>
           <Text style={styles.doseMeta} numberOfLines={1}>
-            {med.dosageText ?? 'No dosage info'}
+            {taken ? 'Taken ✓' : (med.dosageText ?? 'No dosage info')}
           </Text>
         </View>
         <View style={styles.actionCluster}>
+          <Pressable onPress={onToggleTaken} style={[styles.actionBtn, taken && styles.actionBtnTaken]} hitSlop={10}>
+            <Check size={14} strokeWidth={2.4} color={taken ? colors.success : 'rgba(0,0,0,0.35)'} />
+          </Pressable>
           <Pressable onPress={onInfo} style={styles.actionBtn} hitSlop={10}>
             <Info size={14} strokeWidth={2.2} color="rgba(0,0,0,0.4)" />
           </Pressable>
@@ -323,12 +347,16 @@ const styles = StyleSheet.create({
   doseList: { gap: 8 },
   doseCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18 },
   doseCardNext: { shadowColor: colors.accent, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+  doseCardTaken: { opacity: 0.72 },
   doseIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.7)', alignItems: 'center', justifyContent: 'center' },
+  doseIconWrapTaken: { backgroundColor: 'rgba(38,184,30,0.12)' },
   doseInfo: { flex: 1 },
   doseName: { fontSize: 15, color: '#000', fontFamily: fonts.semiBold, letterSpacing: -0.3 },
+  doseNameTaken: { textDecorationLine: 'line-through', color: 'rgba(0,0,0,0.4)' },
   doseMeta: { fontSize: 12, color: colors.meta, fontFamily: fonts.medium, letterSpacing: -0.2, marginTop: 1 },
   actionCluster: { flexDirection: 'row', gap: 4 },
   actionBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center' },
+  actionBtnTaken: { backgroundColor: 'rgba(38,184,30,0.15)' },
 
   unscheduledSection: { paddingHorizontal: 28, gap: 10 },
   unscheduledTitle: { fontSize: 13, color: colors.meta, fontFamily: fonts.medium, letterSpacing: -0.2 },

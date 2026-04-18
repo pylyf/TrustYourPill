@@ -24,7 +24,7 @@ export type MedicationAnalysis = {
     type: string;
     label: string;
     rationale: string;
-    candidateName: string;
+    candidateName: string | null;
   }>;
 };
 

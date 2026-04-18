@@ -201,7 +201,7 @@ export default function App() {
         </AnimatedScreen>
 
         <AnimatedScreen visible={tab === 'symptoms'}>
-          <SymptomsScreen />
+          <SymptomsScreen medications={userMedications} />
         </AnimatedScreen>
 
         <AnimatedScreen visible={tab === 'library'}>

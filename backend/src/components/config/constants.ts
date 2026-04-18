@@ -7,6 +7,7 @@ export const DISCLAIMER = "Prototype only. Not medical advice.";
 
 export const TABLES = {
   userMedications: "user_medications",
+  symptomLogs: "symptom_logs",
   medicationEvidenceCache: "medication_evidence_cache",
   checkResults: "check_results"
 } as const;

@@ -202,21 +202,28 @@ export function MedicationDetailModal({ visible, medication, gradientKey, onClos
     if (visible && medication) {
       sheetY.setValue(SCREEN_HEIGHT);
       Animated.spring(sheetY, { toValue: 0, damping: 22, stiffness: 180, useNativeDriver: true }).start();
-      fetchDetails(medication.displayName);
+      fetchDetails(medication);
     } else {
       setDetails(null);
       setLoading(false);
     }
   }, [visible, medication]);
 
-  const fetchDetails = async (name: string) => {
+  const fetchDetails = async (med: UserMedication) => {
+    // Prefer DB-saved analysis (populated during scan/upload)
+    if (med.analysis) {
+      setDetails(med.analysis as MedDetails);
+      setLoading(false);
+      return;
+    }
+    // Fallback: call AI API
     setLoading(true);
     setDetails(null);
     try {
       const res = await fetch('http://127.0.0.1:3001/api/medications/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidateMedication: name, currentMedications: [] }),
+        body: JSON.stringify({ candidateMedication: med.displayName, currentMedications: [] }),
       });
       if (res.ok) setDetails(await res.json());
     } catch {
@@ -281,20 +288,32 @@ export function MedicationDetailModal({ visible, medication, gradientKey, onClos
             </View>
 
             <View style={styles.headerContent}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>1 dose per day</Text>
-              </View>
+              {(medication.scheduleTimes?.length > 0 || medication.dosageText) && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {medication.scheduleTimes?.length > 0
+                      ? `${medication.scheduleTimes.length} dose${medication.scheduleTimes.length > 1 ? 's' : ''} per day`
+                      : medication.dosageText}
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.titleRow}>
                 <Text style={styles.mainTitle} numberOfLines={2}>
                   {medication.displayName}
                 </Text>
-                <Text style={styles.mainValue}>Rx</Text>
+                {medication.dosageText ? (
+                  <Text style={styles.mainValue} numberOfLines={1}>{medication.dosageText}</Text>
+                ) : null}
               </View>
 
               <View style={styles.subtitleRow}>
                 <Text style={styles.subtitleLeft}>Medication details</Text>
-                <Text style={styles.subtitleRight}>Daily</Text>
+                <Text style={styles.subtitleRight}>
+                  {medication.scheduleTimes?.length > 0
+                    ? formatScheduleTimes(medication.scheduleTimes)
+                    : 'Daily'}
+                </Text>
               </View>
             </View>
           </View>
@@ -548,6 +567,13 @@ function formatStatus(status?: string) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatScheduleTimes(times: string[]): string {
+  if (times.length === 0) return 'Daily';
+  if (times.length === 1) return times[0];
+  if (times.length === 2) return `${times[0]} & ${times[1]}`;
+  return `${times[0]}, ${times[1]} +${times.length - 2}`;
 }
 
 const styles = StyleSheet.create({

@@ -86,3 +86,36 @@ export async function searchMedication(q: string): Promise<{ candidates: Medicat
   if (!res.ok) throw new Error('Failed to search medication');
   return res.json();
 }
+
+// ── Symptom logs ──────────────────────────────────────────────────────────────
+
+export type SymptomLog = {
+  id: string;
+  userId: string;
+  symptoms: string[];
+  otherText: string | null;
+  feelingGood: boolean;
+  loggedAt: string;
+};
+
+export async function getSymptomLogs(): Promise<SymptomLog[]> {
+  const res = await fetch(`${API_BASE}/api/users/${DEMO_USER_ID}/symptom-logs`);
+  if (!res.ok) throw new Error('Failed to fetch symptom logs');
+  const data = await res.json();
+  return data.logs as SymptomLog[];
+}
+
+export async function createSymptomLog(input: {
+  symptoms: string[];
+  otherText?: string | null;
+  feelingGood: boolean;
+}): Promise<SymptomLog> {
+  const res = await fetch(`${API_BASE}/api/users/${DEMO_USER_ID}/symptom-logs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error('Failed to create symptom log');
+  const data = await res.json();
+  return data.log as SymptomLog;
+}

@@ -25,7 +25,7 @@ const medicationAnalysisSchema = z.object({
     type: z.string(),
     label: z.string(),
     rationale: z.string(),
-    candidateName: z.string(),
+    candidateName: z.string().nullable(),
   })).optional(),
 });
 

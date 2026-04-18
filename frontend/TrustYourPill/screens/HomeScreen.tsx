@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
   CalendarDays,
+  Check,
   Clock,
   Flame,
   HeartPulse,
@@ -199,8 +200,8 @@ function ActionCard({ label, icon: Icon, active = false, compact = false, solid 
   );
 }
 
-type PillCardProps = { med: UserMedication | null; gradientKey: GradientKey };
-function PillCard({ med, gradientKey }: PillCardProps) {
+type PillCardProps = { med: UserMedication | null; gradientKey: GradientKey; taken?: boolean; onToggle?: () => void };
+function PillCard({ med, gradientKey, taken = false, onToggle }: PillCardProps) {
   const gradColors = gradients[gradientKey] as unknown as readonly [string, string];
   if (!med) {
     return (
@@ -222,21 +223,30 @@ function PillCard({ med, gradientKey }: PillCardProps) {
   const dose = med.dosageText || (med.scheduleTimes.length > 0 ? `${med.scheduleTimes.length}×/day` : '—');
   const meta = `${med.scheduleTimes.length} dose${med.scheduleTimes.length !== 1 ? 's' : ''}/day`;
   return (
-    <LinearGradient
-      colors={gradColors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.gridCard, styles.pillCard]}
-    >
-      <Text style={styles.cardLabel}>{pillName}</Text>
-      <View style={styles.pillIconWrap}>
-        <PillIcon size={52} strokeWidth={1.2} color="rgba(0,0,0,0.18)" />
-      </View>
-      <View>
-        <Text style={styles.pillDose}>{dose}</Text>
-        <Text style={styles.cardMeta}>{meta}</Text>
-      </View>
-    </LinearGradient>
+    <Pressable style={{ flex: 1 }} onPress={onToggle}>
+      <LinearGradient
+        colors={gradColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.gridCard, styles.pillCard, taken && styles.pillCardTaken]}
+      >
+        {taken && (
+          <View style={styles.pillTakenBadge}>
+            <Check size={12} strokeWidth={2.8} color="#26B81E" />
+          </View>
+        )}
+        <Text style={[styles.cardLabel, taken && styles.cardLabelTaken]}>{pillName}</Text>
+        <View style={styles.pillIconWrap}>
+          {taken
+            ? <Check size={52} strokeWidth={1.2} color="rgba(38,184,30,0.35)" />
+            : <PillIcon size={52} strokeWidth={1.2} color="rgba(0,0,0,0.18)" />}
+        </View>
+        <View>
+          <Text style={styles.pillDose}>{taken ? 'Taken ✓' : dose}</Text>
+          <Text style={styles.cardMeta}>{meta}</Text>
+        </View>
+      </LinearGradient>
+    </Pressable>
   );
 }
 
@@ -251,9 +261,18 @@ export function HomeScreen({
   onOpenEmergency: () => void;
   onOpenAppointments: () => void;
 }) {
+  const [takenIds, setTakenIds] = useState<Set<string>>(new Set());
+
+  const toggleTaken = (id: string) =>
+    setTakenIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
   const totalDailyDoses = medications.reduce((s, m) => s + m.scheduleTimes.length, 0);
-  const pillsTaken = 0; // no check-in tracking yet
-  const adherencePercent = totalDailyDoses > 0 ? Math.round((pillsTaken / totalDailyDoses) * 100) : 0;
+  const pillsTaken = medications.filter((m) => takenIds.has(m.id)).length;
+  const adherencePercent = medications.length > 0 ? Math.round((pillsTaken / medications.length) * 100) : 0;
   const nextDose = computeNextDose(medications);
   const firstPill = medications[0] ?? null;
   const secondPill = medications[1] ?? null;
@@ -330,8 +349,18 @@ export function HomeScreen({
       </LinearGradient>
 
       <View style={styles.row}>
-        <PillCard med={firstPill} gradientKey={pillGradientCycle[0]} />
-        <PillCard med={secondPill} gradientKey={pillGradientCycle[1]} />
+        <PillCard
+          med={firstPill}
+          gradientKey={pillGradientCycle[0]}
+          taken={firstPill !== null && takenIds.has(firstPill.id)}
+          onToggle={firstPill ? () => toggleTaken(firstPill.id) : undefined}
+        />
+        <PillCard
+          med={secondPill}
+          gradientKey={pillGradientCycle[1]}
+          taken={secondPill !== null && takenIds.has(secondPill.id)}
+          onToggle={secondPill ? () => toggleTaken(secondPill.id) : undefined}
+        />
       </View>
 
       <View style={styles.row}>
@@ -545,6 +574,14 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12, paddingHorizontal: 28 },
   gridCard: { flex: 1, borderRadius: 22, padding: 16 },
   pillCard: { height: 210, justifyContent: 'space-between' },
+  pillCardTaken: { opacity: 0.75 },
+  pillTakenBadge: {
+    position: 'absolute', top: 12, right: 12,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(38,184,30,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cardLabelTaken: { color: 'rgba(0,0,0,0.4)' },
   pillIconWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
   emptyPillCard: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   emptyPillText: {
