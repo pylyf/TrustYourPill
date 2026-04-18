@@ -27,7 +27,6 @@ import {
 } from '@expo-google-fonts/geist';
 
 const avatarUri = 'https://www.figma.com/api/mcp/asset/31e6ebca-e0bc-4a62-af12-46698246312f';
-const notificationAvatarUri = 'https://www.figma.com/api/mcp/asset/2af3daff-6f80-4c40-8d78-ac45bb6e63e7';
 const paracetamolUri = 'https://www.figma.com/api/mcp/asset/97efda10-cf4f-423e-85cd-3c2d2addf400';
 const ibuprofenUri = 'https://www.figma.com/api/mcp/asset/888b5795-7ac3-4d88-bbb5-b9480d6cfcc0';
 const geistRegular = 'Geist_400Regular';
@@ -119,8 +118,7 @@ export default function App() {
               </View>
             </View>
             <View style={styles.notificationButton}>
-              <Image source={{ uri: notificationAvatarUri }} style={styles.notificationBackdrop} />
-              <Bell color="#000000" size={18} strokeWidth={2.1} />
+              <Bell color="#000000" size={22} strokeWidth={2.1} />
             </View>
           </View>
 
@@ -196,36 +194,32 @@ const styles = StyleSheet.create({
     gap: 13,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
   },
   greeting: {
-    fontSize: 9,
-    lineHeight: 10,
-    letterSpacing: -0.27,
+    fontSize: 13,
+    lineHeight: 15,
+    letterSpacing: -0.3,
     color: '#000000',
-    marginBottom: 3,
+    marginBottom: 4,
     fontFamily: geistRegular,
   },
   name: {
-    fontSize: 16,
-    lineHeight: 17,
-    letterSpacing: -0.48,
+    fontSize: 20,
+    lineHeight: 22,
+    letterSpacing: -0.5,
     color: '#000000',
     fontFamily: geistSemiBold,
   },
   notificationButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  notificationBackdrop: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
   },
   statusRow: {
     flexDirection: 'row',
