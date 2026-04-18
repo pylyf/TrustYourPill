@@ -68,13 +68,6 @@ const IMAGES = [
   require('../assets/inhaler.png'),
 ];
 
-// Truncate price to just the dollar amount portion (e.g. "$8–$20")
-function shortPrice(price: string): string {
-  // Take everything up to the first space after the price pattern
-  const match = price.match(/^\$[\d.,–\-–]+/);
-  return match ? match[0] : price.slice(0, 10);
-}
-
 // Skeleton shimmer
 
 function SkeletonCard({ index }: { index: number }) {
@@ -156,7 +149,7 @@ function SupplementCard({ item, index, isStatic = false }: { item: SupplementRec
               <View key={i} style={styles.pillSourceRow}>
                 <ExternalLink size={11} strokeWidth={2.4} color={colors.accent} />
                 <Text style={styles.pillSourceTxt}>{src.store}</Text>
-                <Text style={styles.pillSourcePrice}>{shortPrice(src.price)}</Text>
+                <Text style={styles.pillSourcePrice}>{src.price}</Text>
               </View>
             ))}
           </View>

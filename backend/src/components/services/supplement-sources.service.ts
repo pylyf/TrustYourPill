@@ -160,7 +160,7 @@ export class SupplementSourcesService {
           model: env.OPENAI_MODEL,
           store: false,
           instructions:
-            "You are a supplement retail expert. For each supplement provided, give 2–3 reputable online retailers with realistic prices. Price MUST be a short string only — maximum 10 characters, e.g. '$12.99' or '$8–$20'. No extra text, no descriptions, no units, no parentheses. Use real store names (iHerb, Amazon, Thorne, Vitacost, Walmart, CVS, Nordic Naturals, Life Extension, etc.) and valid base URLs.",
+            "You are a supplement retail expert. For each supplement provided, give 2–3 reputable online retailers. The 'price' field MUST be a single dollar amount only — exactly like '$12.99' or '$8.99'. No ranges, no dashes, no extra text, no parentheses, no units. Just a dollar sign and a number. Use real store names (iHerb, Amazon, Thorne, Vitacost, Walmart, CVS, Nordic Naturals, Life Extension, etc.) and valid base URLs.",
           input: `Provide store purchase options for: ${names.join(", ")}`,
           text: {
             format: {
