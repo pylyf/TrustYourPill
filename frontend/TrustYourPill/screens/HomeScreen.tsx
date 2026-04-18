@@ -204,6 +204,46 @@ function ActionCard({ label, icon: Icon, active = false, compact = false, solid 
 type PillCardProps = { med: UserMedication | null; gradientKey: GradientKey; taken?: boolean; onToggle?: () => void };
 function PillCard({ med, gradientKey, taken = false, onToggle }: PillCardProps) {
   const gradColors = gradients[gradientKey] as unknown as readonly [string, string];
+
+  const checkScale   = useRef(new Animated.Value(taken ? 1 : 0)).current;
+  const checkOpacity = useRef(new Animated.Value(taken ? 1 : 0)).current;
+  const imageScale   = useRef(new Animated.Value(taken ? 0 : 1)).current;
+  const imageOpacity = useRef(new Animated.Value(taken ? 0 : 1)).current;
+  const cardScale    = useRef(new Animated.Value(1)).current;
+  const tintOpacity  = useRef(new Animated.Value(taken ? 0.2 : 0)).current;
+
+  useEffect(() => {
+    if (taken) {
+      // Card micro-bounce
+      Animated.sequence([
+        Animated.timing(cardScale, { toValue: 0.95, duration: 70, useNativeDriver: true }),
+        Animated.spring(cardScale, { toValue: 1, damping: 8, stiffness: 220, useNativeDriver: true }),
+      ]).start();
+      // Pill image out
+      Animated.parallel([
+        Animated.timing(imageOpacity, { toValue: 0, duration: 140, useNativeDriver: true }),
+        Animated.timing(imageScale,   { toValue: 0.3, duration: 140, useNativeDriver: true }),
+        Animated.timing(tintOpacity,  { toValue: 0.2, duration: 320, useNativeDriver: true }),
+      ]).start();
+      // Check circle springs in after short delay
+      Animated.sequence([
+        Animated.delay(80),
+        Animated.parallel([
+          Animated.spring(checkScale,   { toValue: 1, damping: 11, stiffness: 200, useNativeDriver: true }),
+          Animated.timing(checkOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        ]),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(checkOpacity, { toValue: 0, duration: 100, useNativeDriver: true }),
+        Animated.timing(checkScale,   { toValue: 0.3, duration: 120, useNativeDriver: true }),
+        Animated.timing(imageOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(imageScale,   { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(tintOpacity,  { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [taken]);
+
   if (!med) {
     return (
       <LinearGradient
@@ -225,28 +265,40 @@ function PillCard({ med, gradientKey, taken = false, onToggle }: PillCardProps) 
   const meta = `${med.scheduleTimes.length} dose${med.scheduleTimes.length !== 1 ? 's' : ''}/day`;
   return (
     <Pressable style={{ flex: 1 }} onPress={onToggle}>
-      <LinearGradient
-        colors={gradColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.gridCard, styles.pillCard, taken && styles.pillCardTaken]}
-      >
-        {taken && (
-          <View style={styles.pillTakenBadge}>
-            <Check size={12} strokeWidth={2.8} color="#26B81E" />
+      <Animated.View style={{ flex: 1, transform: [{ scale: cardScale }] }}>
+        <LinearGradient
+          colors={gradColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.gridCard, styles.pillCard]}
+        >
+          {/* Green wash overlay */}
+          <Animated.View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, styles.pillTakenOverlay, { opacity: tintOpacity }]}
+          />
+          <Text style={styles.cardLabel}>{pillName}</Text>
+
+          <View style={styles.pillIconWrap}>
+            <Animated.View style={{ position: 'absolute', opacity: imageOpacity, transform: [{ scale: imageScale }] }}>
+              <Image source={getPillImage(med)} style={styles.pillImage} resizeMode="contain" />
+            </Animated.View>
+            <Animated.View style={[styles.takenCircle, { opacity: checkOpacity, transform: [{ scale: checkScale }] }]}>
+              <Check size={38} strokeWidth={2} color="#26B81E" />
+            </Animated.View>
           </View>
-        )}
-        <Text style={[styles.cardLabel, taken && styles.cardLabelTaken]}>{pillName}</Text>
-        <View style={styles.pillIconWrap}>
-          {taken
-            ? <Check size={52} strokeWidth={1.2} color="rgba(38,184,30,0.35)" />
-            : <Image source={getPillImage(med)} style={styles.pillImage} resizeMode="contain" />}
-        </View>
-        <View>
-          <Text style={styles.pillDose}>{taken ? 'Taken ✓' : dose}</Text>
-          <Text style={styles.cardMeta}>{meta}</Text>
-        </View>
-      </LinearGradient>
+
+          <View>
+            <View style={{ minHeight: 26 }}>
+              <Animated.Text style={[styles.pillDose, { opacity: imageOpacity }]}>{dose}</Animated.Text>
+              <Animated.Text style={[styles.pillDose, styles.pillDoseTaken, { position: 'absolute', top: 0, left: 0, opacity: checkOpacity }]}>
+                Taken today
+              </Animated.Text>
+            </View>
+            <Text style={styles.cardMeta}>{meta}</Text>
+          </View>
+        </LinearGradient>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -575,14 +627,19 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12, paddingHorizontal: 28 },
   gridCard: { flex: 1, borderRadius: 22, padding: 16 },
   pillCard: { height: 210, justifyContent: 'space-between' },
-  pillCardTaken: { opacity: 0.75 },
-  pillTakenBadge: {
-    position: 'absolute', top: 12, right: 12,
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: 'rgba(38,184,30,0.15)',
-    alignItems: 'center', justifyContent: 'center',
+  pillTakenOverlay: {
+    borderRadius: 22,
+    backgroundColor: '#26B81E',
   },
-  cardLabelTaken: { color: 'rgba(0,0,0,0.4)' },
+  takenCircle: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    backgroundColor: 'rgba(38,184,30,0.13)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillDoseTaken: { color: '#26B81E' },
   pillIconWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
   pillImage: { width: 90, height: 90 },
   emptyPillCard: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
