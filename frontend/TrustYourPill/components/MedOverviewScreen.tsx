@@ -27,6 +27,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 type Props = {
   visible: boolean;
   medicationName: string | null;
+  currentMedications: string[];
   onClose: () => void;
   onAdd: () => void;
 };
@@ -57,7 +58,7 @@ type CheckResponse = {
   }>;
 };
 
-export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: Props) {
+export function MedOverviewScreen({ visible, medicationName, currentMedications, onClose, onAdd }: Props) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [data, setData] = useState<CheckResponse | null>(null);
 
@@ -132,11 +133,10 @@ export function MedOverviewScreen({ visible, medicationName, onClose, onAdd }: P
 
   const performCheck = async (name: string) => {
     try {
-      // Intentionally hardcoding current meds to trigger interaction logic 
-      // based on backend docs for demonstration context!
+      // Use the user's real medication library as current medications
       const body = {
         candidateMedication: name,
-        currentMedications: ["warfarin", "aspirin"] 
+        currentMedications,
       };
 
       const response = await fetch('http://127.0.0.1:3001/api/medications/check', {
