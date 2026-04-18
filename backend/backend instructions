@@ -538,6 +538,43 @@ Implementation note:
 
 ### 9.4 User medication list
 
+### 9.4 Medication support
+
+`POST /api/medications/support`
+
+Purpose:
+
+- generate supportive-care ideas for a medication
+- consider the user's other medications during suggestion generation
+- return side-effect signals and support suggestions in a frontend-friendly shape
+
+Notes:
+
+- this endpoint is intended for supportive suggestions, not the primary interaction decision
+- support ideas may include supplement-style suggestions for hackathon use
+- any supplement-style idea must be marked as review-only and interaction-checkable
+
+### 9.5 User medication list
+
+### 9.5 Medication scan
+
+`POST /api/medications/scan`
+
+Purpose:
+
+- accept a medication packaging image
+- extract visible medication text with an OpenAI vision model
+- map extracted text to RxNav candidates
+- return candidates for explicit frontend confirmation before save
+
+Notes:
+
+- this flow is for packaging or printed label scanning
+- it is not a reliable loose-pill identification endpoint
+- user confirmation is still required before adding the medication to a profile
+
+### 9.6 User medication list
+
 `GET /api/users/:id/medications`
 
 Purpose:

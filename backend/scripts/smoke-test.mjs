@@ -39,6 +39,14 @@ async function main() {
     })
   });
 
+  const medicationSupport = await requestJson("/api/medications/support", {
+    method: "POST",
+    body: JSON.stringify({
+      candidateMedication,
+      currentMedications
+    })
+  });
+
   await requestJson(`/api/users/${smokeUserId}/medications/${saveMedication.medication.id}`, {
     method: "DELETE"
   });
@@ -52,7 +60,9 @@ async function main() {
     checkStatus: medicationCheck.summary?.status,
     aiGeneratedBy: medicationCheck.aiSummary?.generatedBy,
     sideEffectSignalCount: medicationCheck.sideEffectSignals?.length ?? 0,
-    supportiveCareIdeaCount: medicationCheck.supportiveCareIdeas?.length ?? 0
+    supportiveCareIdeaCount: medicationCheck.supportiveCareIdeas?.length ?? 0,
+    supportAiGeneratedBy: medicationSupport.aiSummary?.generatedBy,
+    supportIdeaCount: medicationSupport.supportiveCareIdeas?.length ?? 0
   };
 
   console.log(JSON.stringify(summary, null, 2));

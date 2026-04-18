@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -30,6 +31,7 @@ import {
   Geist_600SemiBold,
 } from '@expo-google-fonts/geist';
 import { BottomNav } from './components/BottomNav';
+import { ScanScreen } from './components/ScanScreen';
 
 const avatarUri = 'https://www.figma.com/api/mcp/asset/31e6ebca-e0bc-4a62-af12-46698246312f';
 const paracetamolUri = 'https://www.figma.com/api/mcp/asset/97efda10-cf4f-423e-85cd-3c2d2addf400';
@@ -143,6 +145,8 @@ function ActionCard({ label, icon: Icon, active = false, compact = false, solid 
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [isScanVisible, setIsScanVisible] = useState(false);
+
   const [fontsLoaded] = useFonts({
     Geist_400Regular,
     Geist_500Medium,
@@ -292,8 +296,9 @@ export default function App() {
           </View>
         </ScrollView>
 
-        <BottomNav />
+        <BottomNav onAddPress={() => setIsScanVisible(true)} />
       </View>
+      <ScanScreen visible={isScanVisible} onClose={() => setIsScanVisible(false)} />
     </SafeAreaView>
   );
 }

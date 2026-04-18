@@ -37,7 +37,7 @@ const ACTIVE_WIDTH  = 130;
 const TEXT_MAX_W    = 82;
 const SPRING        = { useNativeDriver: false, damping: 22, stiffness: 260 } as const;
 
-export function BottomNav() {
+export function BottomNav({ onAddPress }: { onAddPress?: () => void }) {
   const [activeId, setActiveId] = useState('home');
 
   const widths = useRef(
@@ -63,6 +63,10 @@ export function BottomNav() {
   }, []);
 
   const handleTabPress = useCallback((id: string) => {
+    if (id === 'add' && onAddPress) {
+      onAddPress();
+      return;
+    }
     if (id === activeId) return;
     const prevIdx = TABS.findIndex((t) => t.id === activeId);
     const nextIdx = TABS.findIndex((t) => t.id === id);

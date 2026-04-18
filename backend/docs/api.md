@@ -15,6 +15,8 @@ Rule:
 - `GET /api/medications/search?q=`
 - `GET /api/medications/profile?name=`
 - `POST /api/medications/check`
+- `POST /api/medications/support`
+- `POST /api/medications/scan`
 - `GET /api/users/:id/medications`
 - `POST /api/users/:id/medications`
 - `DELETE /api/users/:id/medications/:medId`
@@ -408,6 +410,165 @@ Current smoke test:
 - `npm run smoke`
 - expects the backend server to already be running
 - verifies `health`, medication search, medication profile, medication list save/list/delete, and medication check
+
+## `POST /api/medications/support`
+
+Purpose:
+
+- generate supportive-care suggestions for one medication
+- consider the user's current medications when producing suggestions
+- return side-effect signals and support ideas without persisting a full check result
+
+Accepts:
+
+```json
+{
+  "candidateMedication": "ibuprofen",
+  "currentMedications": ["warfarin", "aspirin"]
+}
+```
+
+Returns:
+
+```json
+{
+  "candidateMedication": {
+    "input": "ibuprofen",
+    "normalizedName": "ibuprofen",
+    "rxcui": "5640"
+  },
+  "currentMedications": [
+    {
+      "input": "warfarin",
+      "normalizedName": "warfarin",
+      "rxcui": "11289"
+    }
+  ],
+  "sideEffectSignals": [
+    {
+      "domain": "bleeding_risk",
+      "severity": "high",
+      "sourceSections": ["warfarin:drug_interactions", "ibuprofen:warnings"],
+      "explanation": "Warfarin label explicitly warns about bleeding risk and ibuprofen labeling includes stomach bleeding language."
+    }
+  ],
+  "supportiveCareIdeas": [
+    {
+      "type": "supplement",
+      "label": "Consider pharmacist/clinician discussion of gastroprotection (e.g., PPI) if NSAID use is necessary",
+      "rationale": "If short-term NSAID therapy is judged necessary, clinicians may consider GI-protective therapy.",
+      "candidateName": "proton pump inhibitor (e.g., omeprazole) — discuss with clinician",
+      "requiresReview": true,
+      "shouldCheckInteractions": true
+    }
+  ],
+  "aiSummary": {
+    "headline": "This combination should be avoided until reviewed.",
+    "plainLanguageSummary": "Ibuprofen plus warfarin and aspirin raises bleeding risk and may reduce aspirin's cardioprotective effect.",
+    "whatTriggeredThis": "Explicit warfarin interaction language plus ibuprofen warnings and aspirin-related caution.",
+    "questionsForClinician": [
+      "Is there a safer analgesic option for me?",
+      "Do you recommend extra INR checks if I take any NSAID?"
+    ],
+    "confidenceNote": "Summary is based only on the provided FDA label excerpts.",
+    "generatedBy": "openai"
+  },
+  "interactionReviewNote": "Supportive care ideas were generated while considering warfarin, aspirin in the current regimen.",
+  "disclaimer": "Prototype only. Not medical advice."
+}
+```
+
+Current behavior notes:
+
+- this endpoint reuses the same normalization, profile, finding, and AI insight pipeline as the main medication check flow
+- unlike `POST /api/medications/check`, this endpoint does not persist a full check result row
+- `supportiveCareIdeas` may include supplement-like or alternative-medication suggestions for hackathon use
+- any returned idea with `type = "supplement"` is forced to:
+  - `requiresReview = true`
+  - `shouldCheckInteractions = true`
+- current support endpoint output is best used as a discussion layer, not a medication safety approval
+
+## `POST /api/medications/scan`
+
+Purpose:
+
+- accept a medication packaging image
+- extract visible medication text with OpenAI vision
+- map extracted text to RxNav candidates for user confirmation
+
+Accepts:
+
+```json
+{
+  "imageBase64DataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+  "hint": "pharmacy bottle label"
+}
+```
+
+Alternative request:
+
+```json
+{
+  "imageUrl": "https://example.com/medication-label.jpg"
+}
+```
+
+Returns:
+
+```json
+{
+  "source": "openai_vision",
+  "model": "gpt-5.4-mini",
+  "extraction": {
+    "isMedicationPackaging": true,
+    "packagingType": "printed_label",
+    "medicationName": "Ibuprofen",
+    "dosageText": "200 mg",
+    "formText": "tablets",
+    "manufacturer": null,
+    "visibleText": ["Ibuprofen", "200 mg tablets"],
+    "confidence": "high",
+    "requiresReview": false
+  },
+  "match": {
+    "status": "matched",
+    "reason": "A strong top medication candidate was found from the extracted packaging text.",
+    "query": "Ibuprofen",
+    "candidateCount": 10,
+    "bestCandidate": {
+      "rxcui": "5640",
+      "rxaui": "12254458",
+      "displayName": "ibuprofen",
+      "normalizedName": "ibuprofen",
+      "confidenceScore": 11.226275444030762,
+      "rank": 1,
+      "source": "RXNORM"
+    },
+    "candidates": []
+  }
+}
+```
+
+Current behavior notes:
+
+- accepts either `imageBase64DataUrl` or `imageUrl`
+- `imageBase64DataUrl` must start with `data:image/`
+- SVG uploads are rejected
+- the backend normalizes base64 payloads before sending them to OpenAI vision
+- this endpoint is for packaging or label scanning, not loose-pill identification by shape/color alone
+- frontend should still require user confirmation before saving a scanned medication
+
+Typical `match.status` values:
+
+- `matched`
+- `ambiguous`
+- `no_match`
+
+Typical error behavior:
+
+- `400` for invalid payload or unsupported image format
+- `503` if `OPENAI_API_KEY` is missing
+- `502` for upstream vision or scan pipeline failures
 
 ## Current Storage
 
