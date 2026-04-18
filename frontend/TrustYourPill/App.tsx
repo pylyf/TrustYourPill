@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, SafeAreaView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
@@ -17,6 +17,40 @@ import { PillLibraryScreen } from './screens/PillLibraryScreen';
 import { SymptomsScreen } from './screens/SymptomsScreen';
 import { CheckupScreen } from './screens/CheckupScreen';
 
+/** Wraps a screen so it fades + slides up each time it becomes visible */
+function AnimatedScreen({ visible, children }: { visible: boolean; children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    if (visible) {
+      opacity.setValue(0);
+      translateY.setValue(18);
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 280,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateY, {
+          toValue: 0,
+          damping: 22,
+          stiffness: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[styles.animatedScreen, { opacity, transform: [{ translateY }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     Geist_400Regular,
@@ -29,6 +63,28 @@ export default function App() {
   const [scannedName, setScannedName] = useState<string | null>(null);
   const [isEmergencyDrawerVisible, setIsEmergencyDrawerVisible] = useState(false);
   const [isAppointmentsDrawerVisible, setIsAppointmentsDrawerVisible] = useState(false);
+
+  // Animated values for the checkup overlay
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const overlayTranslateY = useRef(new Animated.Value(30)).current;
+  const [overlayMounted, setOverlayMounted] = useState(false);
+
+  useEffect(() => {
+    if (overlay === 'checkup') {
+      setOverlayMounted(true);
+      overlayOpacity.setValue(0);
+      overlayTranslateY.setValue(30);
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.spring(overlayTranslateY, { toValue: 0, damping: 22, stiffness: 200, useNativeDriver: true }),
+      ]).start();
+    } else {
+      // Fade out then unmount
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+        setOverlayMounted(false);
+      });
+    }
+  }, [overlay]);
 
   const onAction = useCallback((action: NavAction) => {
     if (action === 'scan') {
@@ -53,18 +109,36 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.screen}>
-        {tab === 'home'     && <HomeScreen onOpenCheckup={openCheckup} onOpenEmergency={() => setIsEmergencyDrawerVisible(true)} onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)} />}
-        {tab === 'symptoms' && <SymptomsScreen />}
-        {tab === 'library'  && <PillLibraryScreen onAdd={openScan} />}
+        <AnimatedScreen visible={tab === 'home'}>
+          <HomeScreen
+            onOpenCheckup={openCheckup}
+            onOpenEmergency={() => setIsEmergencyDrawerVisible(true)}
+            onOpenAppointments={() => setIsAppointmentsDrawerVisible(true)}
+          />
+        </AnimatedScreen>
 
-        {overlay === 'checkup' ? (
-          <View style={styles.overlay}>
+        <AnimatedScreen visible={tab === 'symptoms'}>
+          <SymptomsScreen />
+        </AnimatedScreen>
+
+        <AnimatedScreen visible={tab === 'library'}>
+          <PillLibraryScreen onAdd={openScan} />
+        </AnimatedScreen>
+
+        {overlayMounted && (
+          <Animated.View
+            style={[
+              styles.overlay,
+              { opacity: overlayOpacity, transform: [{ translateY: overlayTranslateY }] },
+            ]}
+          >
             <CheckupScreen onClose={closeOverlay} />
-          </View>
-        ) : null}
+          </Animated.View>
+        )}
 
         <BottomNav activeTab={tab} onAction={onAction} />
       </View>
+
       <ScanScreen
         visible={overlay === 'scan'}
         onClose={closeOverlay}
@@ -85,6 +159,9 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
+  animatedScreen: {
+    ...StyleSheet.absoluteFillObject,
+  },
   overlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
