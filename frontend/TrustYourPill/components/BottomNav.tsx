@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import {
   Animated,
   Platform,
@@ -37,29 +37,24 @@ const ACTIVE_WIDTH  = 130;
 const TEXT_MAX_W    = 82;
 const SPRING        = { useNativeDriver: false, damping: 22, stiffness: 260 } as const;
 
-type Props = { activeTab: string; setActiveTab: (id: string) => void };
+export function BottomNav() {
+  const [activeId, setActiveId] = useState('home');
 
-export function BottomNav({ activeTab, setActiveTab }: Props) {
-  const isActive0 = (id: string) => id === activeTab;
-
-  // Width drives the pill size AND background colour (via interpolate)
   const widths = useRef(
-    TABS.map((t) => new Animated.Value(isActive0(t.id) ? ACTIVE_WIDTH : INACTIVE_SIZE))
+    TABS.map((t) => new Animated.Value(t.id === 'home' ? ACTIVE_WIDTH : INACTIVE_SIZE))
   ).current;
 
-  // Separate value for text container width so the icon layout is unaffected
   const textWidths = useRef(
-    TABS.map((t) => new Animated.Value(isActive0(t.id) ? TEXT_MAX_W : 0))
+    TABS.map((t) => new Animated.Value(t.id === 'home' ? TEXT_MAX_W : 0))
   ).current;
 
-  // Text opacity for a nice fade-in
   const textOpacities = useRef(
-    TABS.map((t) => new Animated.Value(isActive0(t.id) ? 1 : 0))
+    TABS.map((t) => new Animated.Value(t.id === 'home' ? 1 : 0))
   ).current;
 
-  // Entrance
   const entranceY  = useRef(new Animated.Value(60)).current;
   const entranceOp = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     Animated.parallel([
       Animated.spring(entranceY,  { toValue: 0, useNativeDriver: true, damping: 18, stiffness: 200 }),
@@ -68,26 +63,24 @@ export function BottomNav({ activeTab, setActiveTab }: Props) {
   }, []);
 
   const handleTabPress = useCallback((id: string) => {
-    if (id === activeTab) return;
-    const prevIdx = TABS.findIndex((t) => t.id === activeTab);
+    if (id === activeId) return;
+    const prevIdx = TABS.findIndex((t) => t.id === activeId);
     const nextIdx = TABS.findIndex((t) => t.id === id);
 
-    // Collapse previous pill
     Animated.parallel([
-      Animated.spring(widths[prevIdx],          { toValue: INACTIVE_SIZE, ...SPRING }),
-      Animated.spring(textWidths[prevIdx],       { toValue: 0, ...SPRING }),
-      Animated.timing(textOpacities[prevIdx],    { toValue: 0, duration: 80, useNativeDriver: false }),
+      Animated.spring(widths[prevIdx],         { toValue: INACTIVE_SIZE, ...SPRING }),
+      Animated.spring(textWidths[prevIdx],      { toValue: 0, ...SPRING }),
+      Animated.timing(textOpacities[prevIdx],   { toValue: 0, duration: 80, useNativeDriver: false }),
     ]).start();
 
-    // Expand next pill
     Animated.parallel([
-      Animated.spring(widths[nextIdx],           { toValue: ACTIVE_WIDTH, ...SPRING }),
-      Animated.spring(textWidths[nextIdx],        { toValue: TEXT_MAX_W, ...SPRING }),
-      Animated.timing(textOpacities[nextIdx],     { toValue: 1, duration: 200, delay: 100, useNativeDriver: false }),
+      Animated.spring(widths[nextIdx],          { toValue: ACTIVE_WIDTH, ...SPRING }),
+      Animated.spring(textWidths[nextIdx],       { toValue: TEXT_MAX_W, ...SPRING }),
+      Animated.timing(textOpacities[nextIdx],    { toValue: 1, duration: 200, delay: 100, useNativeDriver: false }),
     ]).start();
 
-    setActiveTab(id);
-  }, [activeTab, setActiveTab, widths, textWidths, textOpacities]);
+    setActiveId(id);
+  }, [activeId, widths, textWidths, textOpacities]);
 
   return (
     <Animated.View
@@ -98,7 +91,6 @@ export function BottomNav({ activeTab, setActiveTab }: Props) {
           {TABS.map((tab, i) => {
             const Icon = tab.icon;
 
-            // Interpolate background from the width value so colour follows the spring
             const backgroundColor = widths[i].interpolate({
               inputRange:  [INACTIVE_SIZE, ACTIVE_WIDTH],
               outputRange: ['rgba(243,244,246,0.8)', '#006BFF'],
@@ -110,6 +102,7 @@ export function BottomNav({ activeTab, setActiveTab }: Props) {
               outputRange: [1, 0],
               extrapolate: 'clamp',
             });
+
             const whiteIconOpacity = widths[i].interpolate({
               inputRange:  [INACTIVE_SIZE, ACTIVE_WIDTH],
               outputRange: [0, 1],
@@ -119,7 +112,6 @@ export function BottomNav({ activeTab, setActiveTab }: Props) {
             return (
               <Pressable key={tab.id} onPress={() => handleTabPress(tab.id)}>
                 <Animated.View style={[styles.item, { width: widths[i], backgroundColor }]}>
-                  {/* Two stacked icons cross-faded via the width interpolation */}
                   <View style={styles.iconStack}>
                     <Animated.View style={[StyleSheet.absoluteFill, styles.iconCenter, { opacity: darkIconOpacity }]}>
                       <Icon size={20} color="#111111" strokeWidth={2} />
@@ -128,7 +120,6 @@ export function BottomNav({ activeTab, setActiveTab }: Props) {
                       <Icon size={20} color="#FFFFFF" strokeWidth={2} />
                     </Animated.View>
                   </View>
-                  {/* Text container: zero-width when inactive, grows when active */}
                   <Animated.View style={{ maxWidth: textWidths[i], overflow: 'hidden' }}>
                     <Animated.Text
                       numberOfLines={1}

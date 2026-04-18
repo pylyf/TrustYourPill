@@ -1,9 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import {
-  Animated,
-  Dimensions,
   Image,
   Pressable,
   SafeAreaView,
@@ -14,29 +11,21 @@ import {
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import {
   Bell,
   CalendarDays,
-  ClipboardList,
   Clock,
   Flame,
   HeartPulse,
-  House,
   LucideIcon,
   Phone,
-  Plus,
-  ShieldAlert,
-  Sparkles,
-  FileText,
-  User,
-  LayoutGrid
 } from 'lucide-react-native';
 import {
   Geist_400Regular,
   Geist_500Medium,
   Geist_600SemiBold,
 } from '@expo-google-fonts/geist';
+import { BottomNav } from './components/BottomNav';
 
 const avatarUri = 'https://www.figma.com/api/mcp/asset/31e6ebca-e0bc-4a62-af12-46698246312f';
 const paracetamolUri = 'https://www.figma.com/api/mcp/asset/97efda10-cf4f-423e-85cd-3c2d2addf400';
@@ -63,14 +52,7 @@ function AdherenceRing({ percent, size = 72 }: { percent: number; size?: number 
             <Stop offset="100%" stopColor="#5C45E2" stopOpacity="1" />
           </SvgLinearGradient>
         </Defs>
-        {/* Track */}
-        <Circle
-          cx={cx} cy={cy} r={r}
-          stroke="rgba(0,0,0,0.18)"
-          strokeWidth={stroke}
-          fill="none"
-        />
-        {/* Progress arc */}
+        <Circle cx={cx} cy={cy} r={r} stroke="rgba(0,0,0,0.18)" strokeWidth={stroke} fill="none" />
         <Circle
           cx={cx} cy={cy} r={r}
           stroke="url(#ringGrad)"
@@ -126,134 +108,6 @@ function ActionCard({ label, icon: Icon, active = false, compact = false, solid 
   );
 }
 
-// ─── Bottom Nav ───────────────────────────────────────────────────────────────
-
-const NAV_ITEMS: { Icon: LucideIcon; label: string; isCenter?: true }[] = [
-  { Icon: House, label: 'Home' },
-  { Icon: FileText, label: 'Notes' },
-  { Icon: User, label: 'Profile' },
-  { Icon: LayoutGrid, label: 'Menu' },
-];
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const BAR_H_PAD = 24; // margin from screen edge
-const INNER_PAD = 10; // padding inside the bar
-const TAB_HEIGHT = 48; // taller to match the image
-const INACTIVE_SIZE = 48; // perfectly round circles for inactive
-const ACTIVE_WIDTH = 110;
-
-function BottomNav() {
-  const [activeTab, setActiveTab] = useState(0);
-  const plusOpenRef = useRef(false);
-
-  const widthAnims = useRef(
-    NAV_ITEMS.map((_, i) => new Animated.Value(i === 0 ? ACTIVE_WIDTH : INACTIVE_SIZE))
-  ).current;
-  const labelOpacities = useRef(
-    NAV_ITEMS.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))
-  ).current;
-  const pressScales = useRef(NAV_ITEMS.map(() => new Animated.Value(1))).current;
-  const plusRotate = useRef(new Animated.Value(0)).current;
-  const barSlideIn = useRef(new Animated.Value(100)).current;
-
-  useEffect(() => {
-    Animated.spring(barSlideIn, {
-      toValue: 0,
-      bounciness: 10,
-      speed: 8,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const handleTabPress = (index: number) => {
-    Animated.sequence([
-      Animated.timing(pressScales[index], { toValue: 0.8, duration: 65, useNativeDriver: true }),
-      Animated.spring(pressScales[index], { toValue: 1, bounciness: 22, speed: 22, useNativeDriver: true }),
-    ]).start();
-
-    if (index === 2) {
-      const toValue = plusOpenRef.current ? 0 : 1;
-      plusOpenRef.current = !plusOpenRef.current;
-      Animated.timing(plusRotate, { toValue, duration: 300, useNativeDriver: true }).start();
-    }
-
-    if (activeTab === index) return;
-
-    Animated.spring(widthAnims[activeTab], {
-      toValue: INACTIVE_SIZE,
-      bounciness: 4,
-      speed: 18,
-      useNativeDriver: false,
-    }).start();
-    Animated.timing(labelOpacities[activeTab], { toValue: 0, duration: 85, useNativeDriver: true }).start();
-
-    Animated.spring(widthAnims[index], {
-      toValue: ACTIVE_WIDTH,
-      bounciness: 9,
-      speed: 15,
-      useNativeDriver: false,
-    }).start();
-    Animated.timing(labelOpacities[index], { toValue: 1, duration: 200, delay: 115, useNativeDriver: true }).start();
-
-    setActiveTab(index);
-  };
-
-  const plusRotation = plusRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '135deg'],
-  });
-
-  return (
-    <Animated.View style={[navStyles.outerWrap, { transform: [{ translateY: barSlideIn }] }]}>
-      {/* top separator line — glass edge effect */}
-      <View style={navStyles.topBorder} />
-      <BlurView intensity={90} tint="light" style={navStyles.blurBar}>
-        <View style={navStyles.glassOverlay} />
-        <View style={navStyles.tabsRow}>
-          {NAV_ITEMS.map((item, index) => {
-            const isActive = activeTab === index;
-            const { Icon, label, isCenter } = item;
-
-            return (
-              <Pressable key={index} onPress={() => handleTabPress(index)} style={navStyles.tabFlex}>
-                <Animated.View
-                  style={[
-                    navStyles.tab,
-                    {
-                      width: widthAnims[index],
-                      backgroundColor: isActive ? '#2563EB' : 'rgba(0,0,0,0.04)',
-                    },
-                  ]}
-                >
-                  <Animated.View
-                    style={{
-                      transform: [
-                        { scale: pressScales[index] },
-                      ],
-                    }}
-                  >
-                    <Icon
-                      size={20}
-                      color={isActive ? '#FFFFFF' : '#111111'}
-                      strokeWidth={isActive ? 2.3 : 1.8}
-                    />
-                  </Animated.View>
-                  <Animated.Text
-                    numberOfLines={1}
-                    style={[navStyles.tabLabel, { opacity: labelOpacities[index] }]}
-                  >
-                    {label}
-                  </Animated.Text>
-                </Animated.View>
-              </Pressable>
-            );
-          })}
-        </View>
-      </BlurView>
-    </Animated.View>
-  );
-}
-
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -274,7 +128,6 @@ export default function App() {
           contentContainerStyle={styles.contentInner}
           showsVerticalScrollIndicator={false}
         >
-          {/* Hero section — now part of the scrollable page */}
           <View style={styles.hero}>
             <View style={styles.topBar}>
               <View style={styles.profileRow}>
@@ -311,7 +164,6 @@ export default function App() {
             </Text>
           </View>
 
-          {/* Hero adherence card — light pastel gradient */}
           <LinearGradient
             colors={['#F4D6E4', '#D9C8EF']}
             start={{ x: 0, y: 0 }}
@@ -330,7 +182,6 @@ export default function App() {
             </View>
           </LinearGradient>
 
-          {/* Pill row */}
           <View style={styles.row}>
             <LinearGradient
               colors={['#E8F4FA', '#CFE5F2']}
@@ -365,7 +216,6 @@ export default function App() {
             </LinearGradient>
           </View>
 
-          {/* Stats row */}
           <View style={styles.row}>
             <LinearGradient
               colors={['#D9EFDC', '#BFE3C8']}
@@ -684,58 +534,5 @@ const styles = StyleSheet.create({
     color: 'rgba(0,0,0,0.6)',
     fontFamily: geistMedium,
     letterSpacing: -0.3,
-  },
-});
-
-const navStyles = StyleSheet.create({
-  outerWrap: {
-    position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
-    shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowRadius: 25,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 16,
-  },
-  topBorder: {
-    display: 'none',
-  },
-  blurBar: {
-    overflow: 'hidden',
-    borderRadius: 100,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  glassOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-  },
-  tabsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: SCREEN_WIDTH - BAR_H_PAD * 2 - 24,
-  },
-  tabFlex: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tab: {
-    height: TAB_HEIGHT,
-    borderRadius: TAB_HEIGHT / 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    paddingHorizontal: 14,
-    gap: 8,
-  },
-  tabLabel: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    letterSpacing: -0.3,
-    fontFamily: geistMedium,
   },
 });
